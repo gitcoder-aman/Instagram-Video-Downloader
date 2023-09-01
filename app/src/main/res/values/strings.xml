@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Insta Saver</string>
+    <string name="paste_link">Paste Link</string>
+    <string name="download">Download</string>
+    <string name="paste_instagram_link_here">Paste Instagram link here</string>
+</resources>
