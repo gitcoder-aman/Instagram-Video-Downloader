@@ -1,28 +1,24 @@
 package com.tech.instasaver
 
 import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.Icon
+import androidx.compose.material.Surface
 import androidx.compose.material.TabRow
-import androidx.compose.material.TopAppBar
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.TopAppBar
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LeadingIconTab
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,89 +26,43 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.accompanist.pager.ExperimentalPagerApi
-import com.google.accompanist.pager.HorizontalPager
-import com.google.accompanist.pager.PagerState
-import com.google.accompanist.pager.pagerTabIndicatorOffset
-import com.google.accompanist.pager.rememberPagerState
-import com.tech.instasaver.apifetch_data.data.model.Variable
-import com.tech.instasaver.apifetch_data.util.ApiState
-import com.tech.instasaver.apifetch_data.viewModels.MainViewModel
+import androidx.navigation.NavHostController
+import com.tech.instasaver.navigation.Browser
+import com.tech.instasaver.navigation.History
+import com.tech.instasaver.navigation.Home
+import com.tech.instasaver.navigation.InstaNavigation
 import com.tech.instasaver.navigation.TabItem
 import com.tech.instasaver.screens.BrowserScreen
 import com.tech.instasaver.screens.HistoryScreen
 import com.tech.instasaver.screens.HomeScreen
 import com.tech.instasaver.ui.theme.InstaSaverTheme
-import com.tech.instasaver.ui.theme.Pink40
 import com.tech.instasaver.ui.theme.PinkColor
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import androidx.compose.material3.Text as Text
 
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-
-    private val mainViewModel : MainViewModel by viewModels()
-
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             InstaSaverTheme {
-//                val navHostController = rememberNavController()
 
-//                InstaNavigation(navHostController)
 
-                val reelId by remember {
-                    mutableStateOf("CvJLB8GOnko")
+                Scaffold(topBar = { TopBar() }) { padding ->
+                    Column(
+                        modifier = Modifier.padding(padding),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+//                        InstaNavigation()
+//                        HomeScreen(navHostController = navController)
+                        TabScreen()
+                    }
                 }
-                Variable.reelId = reelId
-                Log.d("@@@@main", "onCreate: ${Variable.reelId}")
-
-                GETData(mainViewModel = mainViewModel)
             }
-        }
-    }
-    @Composable
-    fun GETData(mainViewModel: MainViewModel){
-        when(val result = mainViewModel.response.value){
-            is ApiState.Success->{
-                Log.d("@@@@main", "GETData: ${result.data.body()?.graphql?.shortcode_media?.video_url}")
-                MainScreen()
-            }
-            is ApiState.Failure->{
-                Log.d("@@@@main", "GETData: ${result.msg}")
-            }
-            is ApiState.Loading->{
-                CircularProgressIndicator()
-            }
-            is ApiState.Empty->{
-                Toast.makeText(applicationContext, "Video Url is not available", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalPagerApi::class, ExperimentalMaterial3Api::class)
-@Composable
-fun MainScreen() {
-    val tabs = listOf(
-        TabItem.Home,
-        TabItem.Browser,
-        TabItem.History,
-    )
-
-    val pagerState = rememberPagerState()
-
-
-    Scaffold(topBar = { TopBar() }) { padding ->
-        Column(
-            modifier = Modifier.padding(padding),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Tabs(tabs = tabs, pagerState = pagerState)
-            TabsContent(tabs = tabs, pagerState = pagerState)
         }
     }
 }
@@ -126,70 +76,59 @@ fun TopBar() {
     )
 }
 
-@OptIn(ExperimentalPagerApi::class)
 @Composable
-fun Tabs(tabs: List<TabItem>, pagerState: PagerState) {
+fun TabScreen() {
+    val tabs = listOf(
+        TabItem.Home,
+        TabItem.Browser,
+        TabItem.History,
+    )
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
 
-    val scope = rememberCoroutineScope()
-    TabRow(
-        selectedTabIndex = pagerState.currentPage,
-        backgroundColor = PinkColor,
-        contentColor = Color.White,
-        indicator = { tabPositions ->
-            TabRowDefaults.Indicator(
-                Modifier.pagerTabIndicatorOffset(
-                    pagerState, tabPositions
-                ), color = Pink40
-            )
-        }) {
-        tabs.forEachIndexed { index, tabItem ->
-            LeadingIconTab(
-                selected = pagerState.currentPage == index,
-                onClick = {
-                    scope.launch {
-                        pagerState.animateScrollToPage(index)
-                    }
-                },
-                text = {
-                    Text(
-                        text = tabItem.title,
-                        style = if (pagerState.currentPage == index) TextStyle(
-                            color = Color.White,
-                            fontSize = 18.sp
-                        ) else TextStyle(
-                            color = Color.Black,
-                            fontSize = 14.sp
-                        )
-                    )
-                },
-                icon = {
-                    Icon(
-                        imageVector = tabItem.icon,
-                        contentDescription = "",
-                        tint = Color.Unspecified
-                    )
-                })
-        }
-    }
-}
-
-@OptIn(ExperimentalPagerApi::class, ExperimentalFoundationApi::class)
-@Composable
-fun TabsContent(tabs: List<TabItem>, pagerState: PagerState) {
-
-    HorizontalPager(
+    Surface(
         modifier = Modifier.fillMaxSize(),
-        count = tabs.size,
-        state = pagerState
-    ) { page ->
-//        Log.d("@@@@", "TabsContent: ${page} ${tabs[page].screen}")
-//        tabs[page].screen
-        if (page == 0) {
-            HomeScreen()
-        } else if (page == 1) {
-            BrowserScreen()
-        } else {
-            HistoryScreen()
+        color = PinkColor
+    ) {
+        Column {
+            // Create a TabRow with tabs
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = PinkColor
+            ) {
+                tabs.forEachIndexed { index, tabItem ->
+                    LeadingIconTab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = {
+                            Text(
+                                text = tabItem.title,
+                                style = if (selectedTabIndex == index) TextStyle(
+                                    color = Color.White,
+                                    fontSize = 18.sp
+                                ) else TextStyle(
+                                    color = Color.Black,
+                                    fontSize = 14.sp
+                                )
+                            )
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = tabItem.icon,
+                                contentDescription = "",
+                                tint = Color.Unspecified
+                            )
+                        })
+                }
+            }
+
+            // Display content based on the selected tab
+            when (selectedTabIndex) {
+                0 -> HomeScreen()
+                1 -> BrowserScreen()
+                2 -> HistoryScreen()
+            }
         }
     }
 }
+

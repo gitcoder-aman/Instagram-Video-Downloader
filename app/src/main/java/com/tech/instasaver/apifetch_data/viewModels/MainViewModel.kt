@@ -5,7 +5,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tech.instasaver.apifetch_data.data.model.Variable
 import com.tech.instasaver.apifetch_data.repository.InstaRepository
 import com.tech.instasaver.apifetch_data.util.ApiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,29 +17,33 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(private val instaRepository: InstaRepository) :
     ViewModel() {
 
-    val response: MutableState<ApiState> = mutableStateOf(ApiState.Empty)
-//    var reelId: MutableState<String> = mutableStateOf("")
-//        var reelId: State<String> = _reelId //observe in ui
+    val response: MutableState<ApiState> = mutableStateOf(ApiState.Empty)   // storing response data
 
+//    init {
+//        Log.d("@@@@main", "8" + response.value)
+//        Log.d("@@@@main", "9" + instaRepository)
+//        getInstaVideo()
+//    }
+    fun fetchInstaVideo(reelId: String) {
+        Log.d("@@@@main", "8" + response.value)
+        Log.d("@@@@main", "9" + instaRepository)
+        viewModelScope.launch {
+            Log.d("@@viewModel", "getInstaVideo2: $reelId")
 
-//    val reelsLiveData: LiveData<InstaModel>
-//        get() = repository.reelsVideo
+            if (reelId != "") {
 
-
-    init {
-        getInstaVideo()
-    }
-
-    private fun getInstaVideo() = viewModelScope.launch {
-        Log.d("@@viewModel", "getInstaVideo2: ${Variable.reelId}")
-        instaRepository.getInstaVideo(Variable.reelId!!)
-            .onStart {
-                response.value = ApiState.Loading
-            }.catch {
-                response.value = ApiState.Failure(it)
-            }.collect {
-                response.value = ApiState.Success(it)
+                instaRepository.getInstaVideo(reelId)
+                    .onStart {
+                        response.value = ApiState.Loading
+                        Log.d("@@@@main", "10" + response.value)
+                    }.catch {
+                        response.value = ApiState.Failure(it)
+                        Log.d("@@@@main", "11" + response.value)
+                    }.collect {
+                        response.value = ApiState.Success(it)
+                        Log.d("@@@@main", "12" + response.value)
+                    }
             }
+        }
     }
-
 }

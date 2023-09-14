@@ -1,6 +1,14 @@
 package com.tech.instasaver.screens
 
+import android.app.DownloadManager
+import android.content.Context
+import android.database.ContentObserver
+import android.net.Uri
+import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -12,19 +20,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,21 +42,43 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.tech.instasaver.R
+import com.tech.instasaver.apifetch_data.data.model.reelModel.InstaModel
+import com.tech.instasaver.apifetch_data.util.ApiState
+import com.tech.instasaver.apifetch_data.viewModels.MainViewModel
+import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.ui.theme.PinkColor
 
 @Composable
 fun HomeScreen() {
 
-    var text by remember {
+    var urlText by remember {
         mutableStateOf("")
     }
+    var isGetData by remember {
+        mutableStateOf(false)
+    }
+    var reelId by remember {
+        mutableStateOf("")
+    }
+    var isCheckUrl by remember {
+        mutableStateOf(false)
+    }
+
+    val clipboardManager = LocalClipboardManager.current
+    val mainViewModel: MainViewModel = hiltViewModel()
+
 
     Box(
         modifier = Modifier
@@ -61,18 +92,8 @@ fun HomeScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-//            if (videoResponse.isLoading) {
-//                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-//                    CircularProgressIndicator(color = PinkColor)
-//                }
-//            }
-//            if (videoResponse.data?.url != null) {
-//                Log.d("@@@@", videoResponse.data.url)
-//            }
 
-            TextFieldLayout(text = text, onValueChange = {
-                text = it
-            })
+            TextFieldLayout(text = urlText)
 
             Spacer(modifier = Modifier.height(10.dp))
             Row(
@@ -80,21 +101,144 @@ fun HomeScreen() {
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Button(stringResource(id = R.string.paste_link))
-                Button(stringResource(R.string.download))
-            }
+                Button(stringResource(id = R.string.paste_link), onClick = {
+                    val clipboardContent = clipboardManager.getText()
+                    urlText = ""
+                    urlText = (clipboardContent ?: "").toString()
+                    isGetData = false
+                    isCheckUrl = true
+                    Log.d("@@@@main", "1$isCheckUrl")
+                })
+                Button(stringResource(R.string.download), onClick = {
+                    Log.d("@@@@main", "5$reelId")
+                    if (reelId != "") {
+                        mainViewModel.fetchInstaVideo(reelId)
+                        isGetData = true
+                        Log.d("@@@@main", "6$isGetData")
+                        Log.d("@@@@main", "7$reelId")
+                    }
+                })
 
+                if (isCheckUrl) {
+                    Log.d("@@@@main", "2$isCheckUrl")
+                    reelId = reelIdGet(urlText)
+                    Log.d("@@@@main", "3$reelId")
+                    isCheckUrl = false
+                    Log.d("@@@@main", "4$isCheckUrl")
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            if (isGetData) {
+
+                Log.d("@@@@main", "13$mainViewModel")
+
+                GETData(mainViewModel = mainViewModel)
+            }
+        }
+    }
+
+}
+
+@Composable
+fun reelIdGet(urlText: String): String {
+    if (urlText.isNotEmpty()) {
+        if (urlText.matches("https://www.instagram.com/(.*)".toRegex())) {
+            val splitReelId = urlText.substring(31, 42)
+            if (splitReelId.length >= 10) {
+                return splitReelId
+            }
+        } else {
+            Toast.makeText(
+                LocalContext.current,
+                "only support for instagram link.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    } else {
+        Toast.makeText(
+            LocalContext.current,
+            "first paste the instagram link.",
+            Toast.LENGTH_SHORT
+        ).show()
+        return ""
+    }
+    return ""
+}
+
+@Composable
+fun GETData(mainViewModel: MainViewModel) {
+    Log.d("@@@@main", "14 GETData: ${mainViewModel.response.value}")
+    when (val result = mainViewModel.response.value) {
+        is ApiState.Success -> {
+            if(result.data.body()?.graphql?.shortcode_media?.video_url != null){
+                VideoDetailCard(result.data.body()!!)
+                DownloadMedia(result.data.body()!!)
+            }
+        }
+
+        is ApiState.Failure -> {
+            Log.d("@@@@main", "GETData: ${result.msg}")
+        }
+
+        is ApiState.Loading -> {
+            CircularProgressIndicator(color = PinkColor, strokeWidth = 2.dp)
+            Log.d("@@@@main", "GETData: ${"Loading"}")
+        }
+
+        is ApiState.Empty -> {
+            Toast.makeText(LocalContext.current, "Video Url is not available", Toast.LENGTH_SHORT)
+                .show()
         }
     }
 }
 
+@Composable
+private fun DownloadMedia(body: InstaModel) {
+
+    val scanUri = "content://downloads/InstaSaver/"
+    val videoLink = body.graphql.shortcode_media.video_url
+    val downloadManager =
+        LocalContext.current.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+    val request = DownloadManager.Request(Uri.parse(videoLink)).apply {
+        setAllowedNetworkTypes(DownloadManager.Request.NETWORK_MOBILE or DownloadManager.Request.NETWORK_WIFI)
+        setTitle("Downloading Video")
+        setDescription("Please Wait..")
+        setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        setDestinationInExternalPublicDir(
+            Environment.DIRECTORY_DOWNLOADS, body.graphql.shortcode_media.id + ".mp4"
+        )
+
+    }
+    val id = downloadManager.enqueue(request)
+    val query = DownloadManager.Query().setFilterById(id)
+    val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            super.onChange(selfChange)
+
+            val cursor = downloadManager.query(query)
+            if (cursor != null && cursor.moveToFirst()) {
+                val download =
+                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                val total =
+                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+
+                val percentage = (download * 100) / total
+
+            }
+        }
+    }
+    LocalContext.current.contentResolver.registerContentObserver(Uri.parse(scanUri), true, observer)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TextFieldLayout(text: String, onValueChange: (String) -> Unit) {
-    TextField(value = text, onValueChange = onValueChange, modifier = Modifier
-        .padding(15.dp)
-        .shadow(elevation = 2.dp, shape = RoundedCornerShape(16.dp))
-        .fillMaxWidth(),
+fun TextFieldLayout(text: String) {
+    TextField(
+        value = text, onValueChange = {}, modifier = Modifier
+            .padding(15.dp)
+            .shadow(elevation = 2.dp, shape = RoundedCornerShape(16.dp))
+            .fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         textStyle = TextStyle(fontFamily = lato_regular),
         colors = TextFieldDefaults.textFieldColors(
@@ -108,7 +252,7 @@ fun TextFieldLayout(text: String, onValueChange: (String) -> Unit) {
                 handleColor = PinkColor,
                 backgroundColor = PinkColor
             )
-        ), keyboardActions = KeyboardActions(KeyboardActions.Default.onSearch), placeholder = {
+        ), placeholder = {
             Text(
                 text = stringResource(R.string.paste_instagram_link_here), style = TextStyle(
                     color = Color.Gray,
@@ -117,14 +261,16 @@ fun TextFieldLayout(text: String, onValueChange: (String) -> Unit) {
                     fontFamily = lato_regular
                 )
             )
-        }
+        }, readOnly = true
     )
 }
 
 @Composable
-fun Button(buttonText: String) {
+fun Button(buttonText: String, onClick: () -> Unit) {
     Button(
-        onClick = { /*TODO*/ },
+        onClick = {
+            onClick()
+        },
         modifier = Modifier,
         colors = ButtonDefaults.buttonColors(
             containerColor = PinkColor,
@@ -143,5 +289,80 @@ fun Button(buttonText: String) {
                 fontFamily = lato_regular
             )
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VideoDetailCard(body: InstaModel) {
+
+    Card(
+        onClick = { /*TODO*/ },
+        modifier = Modifier
+            .padding(8.dp)
+            .fillMaxWidth()
+            .height(100.dp),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(4.dp, 1.dp),
+        colors = CardDefaults.cardColors(containerColor = PinkColor, contentColor = Color.Black),
+        border = BorderStroke(
+            1.dp,
+            Color.Black
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = body.graphql.shortcode_media.thumbnail_src,
+                contentDescription = "insta_downloader",
+                placeholder = painterResource(id = R.drawable.ic_launcher_background),
+                error = painterResource(id = R.drawable.ic_launcher_background),
+                modifier = Modifier.width(100.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 5.dp, end = 5.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceAround
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AsyncImage(
+                        model = body.graphql.shortcode_media.owner?.profile_pic_url,
+                        contentDescription = "insta_downloader",
+                        placeholder = painterResource(id = R.drawable.ic_launcher_background),
+                        error = painterResource(id = R.drawable.ic_launcher_background),
+                        modifier = Modifier.size(25.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = body.graphql.shortcode_media.owner?.username!!, style = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.W400,
+                            fontFamily = lato_bold,
+                            color = Color.Black
+                        )
+                    )
+                }
+                Text(
+                    text = body.graphql.shortcode_media.edge_media_to_caption?.edges!![0].node.text,
+                    style = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.W200,
+                        fontFamily = lato_regular,
+                        color = Color.Black,
+                    ),
+                    maxLines = 1
+                )
+
+            }
+        }
     }
 }
