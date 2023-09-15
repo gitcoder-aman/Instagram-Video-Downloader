@@ -2,11 +2,9 @@ package com.tech.instasaver.screens
 
 import android.app.DownloadManager
 import android.content.Context
-import android.database.ContentObserver
+import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -35,10 +33,13 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -58,6 +59,7 @@ import com.tech.instasaver.apifetch_data.util.ApiState
 import com.tech.instasaver.apifetch_data.viewModels.MainViewModel
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
+import com.tech.instasaver.customcomponents.CustomComponent
 import com.tech.instasaver.ui.theme.PinkColor
 
 @Composable
@@ -74,6 +76,9 @@ fun HomeScreen() {
     }
     var isCheckUrl by remember {
         mutableStateOf(false)
+    }
+    var downloadValue by remember {
+        mutableFloatStateOf(0F)
     }
 
     val clipboardManager = LocalClipboardManager.current
@@ -170,9 +175,10 @@ fun GETData(mainViewModel: MainViewModel) {
     Log.d("@@@@main", "14 GETData: ${mainViewModel.response.value}")
     when (val result = mainViewModel.response.value) {
         is ApiState.Success -> {
-            if(result.data.body()?.graphql?.shortcode_media?.video_url != null){
-                VideoDetailCard(result.data.body()!!)
-                DownloadMedia(result.data.body()!!)
+            if (result.data.body()?.graphql?.shortcode_media?.video_url != null) {
+                DownloadMedia(result.data.body()!!) {
+
+                }
             }
         }
 
@@ -193,9 +199,9 @@ fun GETData(mainViewModel: MainViewModel) {
 }
 
 @Composable
-private fun DownloadMedia(body: InstaModel) {
+private fun DownloadMedia(body: InstaModel, onValueChange: () -> Unit) {
 
-    val scanUri = "content://downloads/InstaSaver/"
+    val scanUri = "content://downloads/instasaver"
     val videoLink = body.graphql.shortcode_media.video_url
     val downloadManager =
         LocalContext.current.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -211,7 +217,8 @@ private fun DownloadMedia(body: InstaModel) {
 
     }
     val id = downloadManager.enqueue(request)
-    val query = DownloadManager.Query().setFilterById(id)
+    val downloadProgress = updateDownloadProgress(id,downloadManager)
+    /*val query = DownloadManager.Query().setFilterById(id)
     val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
             super.onChange(selfChange)
@@ -223,12 +230,53 @@ private fun DownloadMedia(body: InstaModel) {
                 val total =
                     cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
 
-                val percentage = (download * 100) / total
+                percentage = (((download * 100) / total).toInt())
+
+                Log.d("percentage", "onChange: ${percentage}")
 
             }
         }
+    }*/
+//    LocalContext.current.contentResolver.registerContentObserver(Uri.parse(scanUri), true, observer)
+    Log.d("percentage", "onChange: ${downloadProgress}")
+    VideoDetailCard(body, downloadProgress)
+}
+
+@Composable
+private fun updateDownloadProgress(downloadId: Long, downloadManager: DownloadManager) : Int {
+    var downloadProgress by remember {
+        mutableIntStateOf(0)
     }
-    LocalContext.current.contentResolver.registerContentObserver(Uri.parse(scanUri), true, observer)
+    var progress = 0
+    while (progress < 100) {
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor: Cursor = downloadManager.query(query)
+        if (cursor.moveToFirst()) {
+            val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+            when (status) {
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    progress = 100
+                    downloadProgress = progress
+                }
+
+                DownloadManager.STATUS_FAILED -> {
+                    progress = -1
+                    downloadProgress = progress
+                }
+
+                else -> {
+                    val downloadedBytes =
+                        cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                    val totalBytes =
+                        cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    progress = ((downloadedBytes.toFloat() / totalBytes) * 100).toInt()
+                    downloadProgress = progress
+                }
+            }
+        }
+        cursor.close()
+    }
+    return downloadProgress
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -294,7 +342,7 @@ fun Button(buttonText: String, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoDetailCard(body: InstaModel) {
+fun VideoDetailCard(body: InstaModel, downloadProgress: Int) {
 
     Card(
         onClick = { /*TODO*/ },
@@ -313,18 +361,12 @@ fun VideoDetailCard(body: InstaModel) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = CenterVertically
         ) {
-            AsyncImage(
-                model = body.graphql.shortcode_media.thumbnail_src,
-                contentDescription = "insta_downloader",
-                placeholder = painterResource(id = R.drawable.ic_launcher_background),
-                error = painterResource(id = R.drawable.ic_launcher_background),
-                modifier = Modifier.width(100.dp)
-            )
+            ImageWithDownloaderView(body, downloadProgress)
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxWidth().align(CenterVertically)
                     .padding(start = 5.dp, end = 5.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceAround
@@ -332,7 +374,7 @@ fun VideoDetailCard(body: InstaModel) {
                 Row(
                     modifier = Modifier.padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = CenterVertically
                 ) {
                     AsyncImage(
                         model = body.graphql.shortcode_media.owner?.profile_pic_url,
@@ -364,5 +406,30 @@ fun VideoDetailCard(body: InstaModel) {
 
             }
         }
+    }
+}
+
+@Composable
+fun ImageWithDownloaderView(body: InstaModel, downloadProgress: Int) {
+
+    Box(modifier = Modifier.width(100.dp), contentAlignment = Alignment.Center) {
+
+        AsyncImage(
+            model = body.graphql.shortcode_media.thumbnail_src,
+            contentDescription = "insta_downloader",
+            placeholder = painterResource(id = R.drawable.ic_launcher_background),
+            error = painterResource(id = R.drawable.ic_launcher_background),
+            modifier = Modifier.width(100.dp)
+        )
+        CustomComponent(
+            canvasSize = 100.dp,
+            indicatorValue = downloadProgress,
+            backgroundIndicatorColor = Color.White,
+            backgroundIndicatorStrokeWidth = 20f,
+            foregroundIndicatorStrokeWidth = 10f,
+            foregroundIndicatorColor = PinkColor,
+            bigTextColor = PinkColor,
+            bigTextFontSize = 20.sp,
+        )
     }
 }
