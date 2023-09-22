@@ -1,9 +1,6 @@
 package com.tech.instasaver.apifetch_data.retrofit
 
-import androidx.compose.runtime.State
 import com.tech.instasaver.apifetch_data.data.model.reelModel.InstaModel
-import com.tech.instasaver.apifetch_data.util.ApiState
-import kotlinx.coroutines.flow.Flow
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Path
@@ -17,4 +14,7 @@ interface ApiService {
     }
     @GET("reel/{reelId}/$END_POINT")
     suspend fun getReelVideo(@Path("reelId") reelId: String) : Response<InstaModel>
+
+    @GET("p/{photo_id}/$END_POINT")
+    suspend fun getPhoto(@Path("photoId") photoId: String) : Response<InstaModel>
 }

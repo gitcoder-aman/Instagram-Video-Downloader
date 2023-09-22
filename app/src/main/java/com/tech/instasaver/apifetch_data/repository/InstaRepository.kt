@@ -19,4 +19,8 @@ class InstaRepository @Inject constructor(private val apiService: ApiService){
         emit(apiService.getReelVideo(reelId))
     }.flowOn(Dispatchers.IO)
 
+    fun getInstaPhoto(photoId : String) : Flow<Response<InstaModel>> = flow {
+        emit(apiService.getPhoto(photoId))
+    }.flowOn(Dispatchers.IO)
+
 }

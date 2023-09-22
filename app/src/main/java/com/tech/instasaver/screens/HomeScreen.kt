@@ -1,14 +1,14 @@
 package com.tech.instasaver.screens
 
+import android.annotation.SuppressLint
 import android.app.DownloadManager
-import android.content.Context
 import android.database.Cursor
-import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,29 +20,37 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.SlowMotionVideo
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -61,29 +69,42 @@ import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.customcomponents.CustomComponent
 import com.tech.instasaver.ui.theme.PinkColor
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 @Composable
 fun HomeScreen() {
 
-    var urlText by remember {
+    var urlText by rememberSaveable {
         mutableStateOf("")
     }
-    var isGetData by remember {
+    var isGetData by rememberSaveable {
         mutableStateOf(false)
     }
-    var reelId by remember {
+    var instaIdGet by rememberSaveable {
         mutableStateOf("")
     }
-    var isCheckUrl by remember {
+    var isCheckUrl by rememberSaveable {
         mutableStateOf(false)
     }
-    var downloadValue by remember {
-        mutableFloatStateOf(0F)
+    var isFetchingData by rememberSaveable {
+        mutableStateOf(false)
     }
-
+    var isPhotoSelected by rememberSaveable {
+        mutableStateOf(true)
+    }
+    var isReelSelected by rememberSaveable {
+        mutableStateOf(false)
+    }
     val clipboardManager = LocalClipboardManager.current
     val mainViewModel: MainViewModel = hiltViewModel()
-
 
     Box(
         modifier = Modifier
@@ -97,6 +118,31 @@ fun HomeScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = CenterVertically
+            ) {
+
+                ChipRow(
+                    chipName = "Photo",
+                    chipIcon = Icons.Default.Photo,
+                    isSelected = isPhotoSelected,
+                    onClick = {
+                        isPhotoSelected = true
+                        isReelSelected = false
+                    })
+
+
+                ChipRow(
+                    chipName = "Reel",
+                    chipIcon = Icons.Default.SlowMotionVideo,
+                    isSelected = isReelSelected,
+                    onClick = {
+                        isReelSelected = true
+                        isPhotoSelected = false
+                    })
+            }
 
             TextFieldLayout(text = urlText)
 
@@ -104,40 +150,47 @@ fun HomeScreen() {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = CenterVertically
             ) {
                 Button(stringResource(id = R.string.paste_link), onClick = {
                     val clipboardContent = clipboardManager.getText()
                     urlText = ""
                     urlText = (clipboardContent ?: "").toString()
                     isGetData = false
-                    isCheckUrl = true
-                    Log.d("@@@@main", "1$isCheckUrl")
                 })
                 Button(stringResource(R.string.download), onClick = {
-                    Log.d("@@@@main", "5$reelId")
-                    if (reelId != "") {
-                        mainViewModel.fetchInstaVideo(reelId)
-                        isGetData = true
-                        Log.d("@@@@main", "6$isGetData")
-                        Log.d("@@@@main", "7$reelId")
-                    }
+                    isCheckUrl = true
                 })
 
                 if (isCheckUrl) {
-                    Log.d("@@@@main", "2$isCheckUrl")
-                    reelId = reelIdGet(urlText)
-                    Log.d("@@@@main", "3$reelId")
+                    instaIdGet = instaIdGet(urlText, isPhotoSelected, isReelSelected)
+                    Log.d("@@@@main", "3$instaIdGet")
+                    if (instaIdGet != "") {
+                        isFetchingData = true
+                    }
                     isCheckUrl = false
-                    Log.d("@@@@main", "4$isCheckUrl")
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
+
+            if (isFetchingData) {
+                if (isReelSelected) {
+                    Log.d("@@@@main", "$isReelSelected")
+                    mainViewModel.fetchInstaVideo(instaIdGet)
+                } else if (isPhotoSelected) {
+                    Log.d("@@@@main", "$isPhotoSelected")
+                    mainViewModel.fetchInstaPhoto(instaIdGet)
+                }
+                isGetData = true
+                isFetchingData = false
+            }
             if (isGetData) {
 
                 Log.d("@@@@main", "13$mainViewModel")
 
-                GETData(mainViewModel = mainViewModel)
+                Log.d("@@@@main", "isPhoto$isPhotoSelected")
+                Log.d("@@@@main", "isReel$isReelSelected")
+                GETData(mainViewModel = mainViewModel, isPhotoSelected, isReelSelected)
             }
         }
     }
@@ -145,12 +198,57 @@ fun HomeScreen() {
 }
 
 @Composable
-fun reelIdGet(urlText: String): String {
+fun ChipRow(
+    chipName: String,
+    onClick: () -> Unit = {},
+    chipIcon: ImageVector,
+    isSelected: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .padding(8.dp)
+            .clip(CircleShape)
+            .background(if (isSelected) PinkColor else Color.White)
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = CenterVertically
+    ) {
+        Text(
+            text = chipName,
+            fontSize = 14.sp,
+            color = Color.Black
+        )
+
+        Spacer(modifier = Modifier.width(4.dp))
+
+        Icon(
+            imageVector = chipIcon,
+            contentDescription = null,
+            tint = if (isSelected) Color.White else Color.Black,
+        )
+    }
+}
+
+@Composable
+fun instaIdGet(urlText: String, isPhotoSelected: Boolean, isReelSelected: Boolean): String {
     if (urlText.isNotEmpty()) {
         if (urlText.matches("https://www.instagram.com/(.*)".toRegex())) {
-            val splitReelId = urlText.substring(31, 42)
-            if (splitReelId.length >= 10) {
-                return splitReelId
+            if (urlText.contains("https://www.instagram.com/reel") && isReelSelected) {
+                val splitReelId = urlText.substring(31, 42)
+                if (splitReelId.length >= 10) {
+                    return splitReelId
+                }
+            } else if (urlText.contains("https://www.instagram.com/p") && isPhotoSelected) {
+                val slipPhotoId = urlText.substring(28, 39)
+                if (slipPhotoId.length >= 10) {
+                    return slipPhotoId
+                }
+            } else {
+                Toast.makeText(
+                    LocalContext.current,
+                    "Change the type of Instagram Photo & Reel",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } else {
             Toast.makeText(
@@ -171,13 +269,21 @@ fun reelIdGet(urlText: String): String {
 }
 
 @Composable
-fun GETData(mainViewModel: MainViewModel) {
+private fun GETData(
+    mainViewModel: MainViewModel,
+    isPhotoSelected: Boolean,
+    isReelSelected: Boolean
+) {
     Log.d("@@@@main", "14 GETData: ${mainViewModel.response.value}")
     when (val result = mainViewModel.response.value) {
         is ApiState.Success -> {
-            if (result.data.body()?.graphql?.shortcode_media?.video_url != null) {
-                DownloadMedia(result.data.body()!!) {
-
+            if (isReelSelected) {
+                if (result.data.body()?.graphql?.shortcode_media?.video_url != null) {
+                    DownloadMedia(result.data.body()!!, isReelSelected, isPhotoSelected)
+                }
+            } else if (isPhotoSelected) {
+                if (result.data.body()?.graphql?.shortcode_media?.display_url != null) {
+                    DownloadMedia(result.data.body()!!, isReelSelected, isPhotoSelected)
                 }
             }
         }
@@ -198,87 +304,85 @@ fun GETData(mainViewModel: MainViewModel) {
     }
 }
 
+@SuppressLint("UnrememberedMutableState", "CoroutineCreationDuringComposition")
 @Composable
-private fun DownloadMedia(body: InstaModel, onValueChange: () -> Unit) {
+private fun DownloadMedia(body: InstaModel, isReelSelected: Boolean, isPhotoSelected: Boolean) {
 
-    val scanUri = "content://downloads/instasaver"
-    val videoLink = body.graphql.shortcode_media.video_url
-    val downloadManager =
-        LocalContext.current.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    var downloadProgress by remember { mutableIntStateOf(0) }
 
-    val request = DownloadManager.Request(Uri.parse(videoLink)).apply {
-        setAllowedNetworkTypes(DownloadManager.Request.NETWORK_MOBILE or DownloadManager.Request.NETWORK_WIFI)
-        setTitle("Downloading Video")
-        setDescription("Please Wait..")
-        setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        setDestinationInExternalPublicDir(
-            Environment.DIRECTORY_DOWNLOADS, body.graphql.shortcode_media.id + ".mp4"
-        )
-
+    val uriLink: String = if (isReelSelected) {
+        body.graphql.shortcode_media.video_url!!
+    } else {
+        body.graphql.shortcode_media.display_url!!
     }
-    val id = downloadManager.enqueue(request)
-    val downloadProgress = updateDownloadProgress(id,downloadManager)
-    /*val query = DownloadManager.Query().setFilterById(id)
-    val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) {
-            super.onChange(selfChange)
+    val STORAGE_DIRECTORY = "/Download/InstaSaver"
+    val storageDirectory = if (isReelSelected) Environment.getExternalStorageDirectory()
+        .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".mp4" else Environment.getExternalStorageDirectory()
+        .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".jpg"
 
-            val cursor = downloadManager.query(query)
-            if (cursor != null && cursor.moveToFirst()) {
-                val download =
-                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
-                val total =
-                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+    //check file is created or not
+    val file = File(Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY)
+    if (!file.exists()) {
+        file.mkdirs()
+    }
 
-                percentage = (((download * 100) / total).toInt())
+    LaunchedEffect(key1 = Unit) {
 
-                Log.d("percentage", "onChange: ${percentage}")
-
-            }
+        startDownloadTask(uriLink, storageDirectory) { progress ->
+            downloadProgress = progress
         }
-    }*/
-//    LocalContext.current.contentResolver.registerContentObserver(Uri.parse(scanUri), true, observer)
-    Log.d("percentage", "onChange: ${downloadProgress}")
-    VideoDetailCard(body, downloadProgress)
+    }
+
+    VideoDetailCard(
+        body = body,
+        downloadProgress = downloadProgress,
+        isReelSelected = isReelSelected,
+        isPhotoSelected = isPhotoSelected
+    )
 }
 
-@Composable
-private fun updateDownloadProgress(downloadId: Long, downloadManager: DownloadManager) : Int {
-    var downloadProgress by remember {
-        mutableIntStateOf(0)
-    }
-    var progress = 0
-    while (progress < 100) {
-        val query = DownloadManager.Query().setFilterById(downloadId)
-        val cursor: Cursor = downloadManager.query(query)
-        if (cursor.moveToFirst()) {
-            val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-            when (status) {
-                DownloadManager.STATUS_SUCCESSFUL -> {
-                    progress = 100
-                    downloadProgress = progress
-                }
+@OptIn(DelicateCoroutinesApi::class)
+private fun startDownloadTask(
+    uriLink: String,
+    storageDirectory: String,
+    progressCallback: (Int) -> Unit
 
-                DownloadManager.STATUS_FAILED -> {
-                    progress = -1
-                    downloadProgress = progress
-                }
+) {
 
-                else -> {
-                    val downloadedBytes =
-                        cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
-                    val totalBytes =
-                        cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
-                    progress = ((downloadedBytes.toFloat() / totalBytes) * 100).toInt()
-                    downloadProgress = progress
+    GlobalScope.launch(Dispatchers.IO) {
+
+
+        val url = URL(uriLink)
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("Accept-Encoding", "identity")
+        connection.connect()
+
+        if (connection.responseCode in 200..299) {
+            val fileSize = connection.contentLength
+            val inputStream = connection.inputStream
+            val outputStream = FileOutputStream(storageDirectory)
+
+            var byteCopied: Long = 0
+            var buffer = ByteArray(1024)
+            var bytes = inputStream.read(buffer)
+            while (bytes >= 0) {
+                byteCopied += bytes
+                var downloadProgress = (byteCopied.toFloat() / fileSize.toFloat() * 100).toInt()
+
+                withContext(Dispatchers.Main) {
+                    // Set the composable content within the withContext
+                    Log.d("progressHome", "DownloadMedia: $downloadProgress")
+                    progressCallback(downloadProgress)
                 }
+                outputStream.write(buffer, 0, bytes)
+                bytes = inputStream.read(buffer)
             }
+            outputStream.close()
+            inputStream.close()
         }
-        cursor.close()
     }
-    return downloadProgress
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextFieldLayout(text: String) {
@@ -340,9 +444,15 @@ fun Button(buttonText: String, onClick: () -> Unit) {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoDetailCard(body: InstaModel, downloadProgress: Int) {
+fun VideoDetailCard(
+    body: InstaModel,
+    downloadProgress: Int,
+    isReelSelected: Boolean,
+    isPhotoSelected: Boolean
+) {
 
     Card(
         onClick = { /*TODO*/ },
@@ -363,10 +473,11 @@ fun VideoDetailCard(body: InstaModel, downloadProgress: Int) {
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = CenterVertically
         ) {
-            ImageWithDownloaderView(body, downloadProgress)
+            ImageWithDownloaderView(body, downloadProgress, isReelSelected, isPhotoSelected)
             Column(
                 modifier = Modifier
-                    .fillMaxWidth().align(CenterVertically)
+                    .fillMaxWidth()
+                    .align(CenterVertically)
                     .padding(start = 5.dp, end = 5.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceAround
@@ -393,8 +504,9 @@ fun VideoDetailCard(body: InstaModel, downloadProgress: Int) {
                         )
                     )
                 }
+                //media Title
                 Text(
-                    text = body.graphql.shortcode_media.edge_media_to_caption?.edges!![0].node.text,
+                    text = (if (body.graphql.shortcode_media.edge_media_to_caption?.edges?.isEmpty() == true) body.graphql.shortcode_media.shortcode else body.graphql.shortcode_media.edge_media_to_caption?.edges?.get(0)?.node?.text)!!,
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W200,
@@ -410,12 +522,18 @@ fun VideoDetailCard(body: InstaModel, downloadProgress: Int) {
 }
 
 @Composable
-fun ImageWithDownloaderView(body: InstaModel, downloadProgress: Int) {
+fun ImageWithDownloaderView(
+    body: InstaModel,
+    downloadProgress: Int,
+    isReelSelected: Boolean,
+    isPhotoSelected: Boolean
+) {
 
     Box(modifier = Modifier.width(100.dp), contentAlignment = Alignment.Center) {
 
         AsyncImage(
-            model = body.graphql.shortcode_media.thumbnail_src,
+            model = if (isReelSelected) body.graphql.shortcode_media.thumbnail_src else if (isPhotoSelected) body.graphql.shortcode_media.display_url else {
+            },
             contentDescription = "insta_downloader",
             placeholder = painterResource(id = R.drawable.ic_launcher_background),
             error = painterResource(id = R.drawable.ic_launcher_background),

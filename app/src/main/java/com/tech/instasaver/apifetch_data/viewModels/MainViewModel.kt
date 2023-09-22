@@ -46,4 +46,26 @@ class MainViewModel @Inject constructor(private val instaRepository: InstaReposi
             }
         }
     }
+    fun fetchInstaPhoto(photoId: String) {
+        Log.d("@@@@main", "8" + response.value)
+        Log.d("@@@@main", "9" + instaRepository)
+        viewModelScope.launch {
+            Log.d("@@viewModel", "getInstaPhoto: $photoId")
+
+            if (photoId != "") {
+
+                instaRepository.getInstaVideo(photoId)
+                    .onStart {
+                        response.value = ApiState.Loading
+                        Log.d("@@@@main", "10" + response.value)
+                    }.catch {
+                        response.value = ApiState.Failure(it)
+                        Log.d("@@@@main", "11" + response.value)
+                    }.collect {
+                        response.value = ApiState.Success(it)
+                        Log.d("@@@@main", "12" + response.value)
+                    }
+            }
+        }
+    }
 }
