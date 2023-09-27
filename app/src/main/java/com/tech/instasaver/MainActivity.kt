@@ -27,12 +27,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.tech.instasaver.navigation.Browser
-import com.tech.instasaver.navigation.History
-import com.tech.instasaver.navigation.Home
+import androidx.navigation.compose.rememberNavController
 import com.tech.instasaver.navigation.InstaNavigation
 import com.tech.instasaver.navigation.TabItem
-import com.tech.instasaver.screens.BrowserScreen
 import com.tech.instasaver.screens.HistoryScreen
 import com.tech.instasaver.screens.HomeScreen
 import com.tech.instasaver.ui.theme.InstaSaverTheme
@@ -51,15 +48,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             InstaSaverTheme {
 
+                val navController = rememberNavController()
 
                 Scaffold(topBar = { TopBar() }) { padding ->
                     Column(
                         modifier = Modifier.padding(padding),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-//                        InstaNavigation()
+                        InstaNavigation(navController)
 //                        HomeScreen(navHostController = navController)
-                        TabScreen()
+                        TabScreen(navController)
                     }
                 }
             }
@@ -77,10 +75,9 @@ fun TopBar() {
 }
 
 @Composable
-fun TabScreen() {
+fun TabScreen(navController: NavHostController) {
     val tabs = listOf(
         TabItem.Home,
-        TabItem.Browser,
         TabItem.History,
     )
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -124,9 +121,11 @@ fun TabScreen() {
 
             // Display content based on the selected tab
             when (selectedTabIndex) {
-                0 -> HomeScreen()
-                1 -> BrowserScreen()
-                2 -> HistoryScreen()
+                0 -> HomeScreen(navController)
+//                1 -> BrowserScreen()
+                1 -> {
+                    HistoryScreen(navController)
+                }
             }
         }
     }

@@ -1,8 +1,7 @@
 package com.tech.instasaver.screens
 
 import android.annotation.SuppressLint
-import android.app.DownloadManager
-import android.database.Cursor
+import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
@@ -45,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment.Companion.BottomCenter
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,10 +56,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.tech.instasaver.R
 import com.tech.instasaver.apifetch_data.data.model.reelModel.InstaModel
@@ -80,7 +83,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(navController: NavHostController) {
 
     var urlText by rememberSaveable {
         mutableStateOf("")
@@ -98,10 +101,10 @@ fun HomeScreen() {
         mutableStateOf(false)
     }
     var isPhotoSelected by rememberSaveable {
-        mutableStateOf(true)
+        mutableStateOf(false)
     }
     var isReelSelected by rememberSaveable {
-        mutableStateOf(false)
+        mutableStateOf(true)
     }
     val clipboardManager = LocalClipboardManager.current
     val mainViewModel: MainViewModel = hiltViewModel()
@@ -109,7 +112,8 @@ fun HomeScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White),
+        contentAlignment = BottomCenter,
     ) {
         Column(
             modifier = Modifier
@@ -123,17 +127,6 @@ fun HomeScreen() {
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = CenterVertically
             ) {
-
-                ChipRow(
-                    chipName = "Photo",
-                    chipIcon = Icons.Default.Photo,
-                    isSelected = isPhotoSelected,
-                    onClick = {
-                        isPhotoSelected = true
-                        isReelSelected = false
-                    })
-
-
                 ChipRow(
                     chipName = "Reel",
                     chipIcon = Icons.Default.SlowMotionVideo,
@@ -141,6 +134,14 @@ fun HomeScreen() {
                     onClick = {
                         isReelSelected = true
                         isPhotoSelected = false
+                    })
+                ChipRow(
+                    chipName = "Photo",
+                    chipIcon = Icons.Default.Photo,
+                    isSelected = isPhotoSelected,
+                    onClick = {
+                        isPhotoSelected = true
+                        isReelSelected = false
                     })
             }
 
@@ -164,7 +165,7 @@ fun HomeScreen() {
 
                 if (isCheckUrl) {
                     instaIdGet = instaIdGet(urlText, isPhotoSelected, isReelSelected)
-                    Log.d("@@@@main", "3$instaIdGet")
+                    Log.d("@@@@main", "3 $instaIdGet")
                     if (instaIdGet != "") {
                         isFetchingData = true
                     }
@@ -187,12 +188,28 @@ fun HomeScreen() {
             if (isGetData) {
 
                 Log.d("@@@@main", "13$mainViewModel")
-
                 Log.d("@@@@main", "isPhoto$isPhotoSelected")
                 Log.d("@@@@main", "isReel$isReelSelected")
-                GETData(mainViewModel = mainViewModel, isPhotoSelected, isReelSelected)
+                GETData(
+                    mainViewModel = mainViewModel,
+                    isPhotoSelected,
+                    isReelSelected,
+                    navController
+                )
             }
         }
+        Text(
+            text = "designed & developed by CoderAman",
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            style = TextStyle(
+                fontWeight = FontWeight.W200,
+                fontSize = 12.sp,
+                fontFamily = lato_regular,
+                fontStyle = FontStyle.Italic,
+                color = PinkColor ,
+                textAlign = TextAlign.Center
+            )
+        )
     }
 
 }
@@ -272,24 +289,35 @@ fun instaIdGet(urlText: String, isPhotoSelected: Boolean, isReelSelected: Boolea
 private fun GETData(
     mainViewModel: MainViewModel,
     isPhotoSelected: Boolean,
-    isReelSelected: Boolean
+    isReelSelected: Boolean,
+    navController: NavHostController
 ) {
     Log.d("@@@@main", "14 GETData: ${mainViewModel.response.value}")
     when (val result = mainViewModel.response.value) {
         is ApiState.Success -> {
             if (isReelSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.video_url != null) {
-                    DownloadMedia(result.data.body()!!, isReelSelected, isPhotoSelected)
+                    DownloadMedia(
+                        result.data.body()!!,
+                        isReelSelected,
+                        isPhotoSelected,
+                        navController
+                    )
                 }
             } else if (isPhotoSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.display_url != null) {
-                    DownloadMedia(result.data.body()!!, isReelSelected, isPhotoSelected)
+                    DownloadMedia(
+                        result.data.body()!!,
+                        isReelSelected,
+                        isPhotoSelected,
+                        navController
+                    )
                 }
             }
         }
 
         is ApiState.Failure -> {
-            Log.d("@@@@main", "GETData: ${result.msg}")
+            Log.d("@@@@main", "GETData:  ${result.msg}")
         }
 
         is ApiState.Loading -> {
@@ -306,7 +334,12 @@ private fun GETData(
 
 @SuppressLint("UnrememberedMutableState", "CoroutineCreationDuringComposition")
 @Composable
-private fun DownloadMedia(body: InstaModel, isReelSelected: Boolean, isPhotoSelected: Boolean) {
+private fun DownloadMedia(
+    body: InstaModel,
+    isReelSelected: Boolean,
+    isPhotoSelected: Boolean,
+    navController: NavHostController
+) {
 
     var downloadProgress by remember { mutableIntStateOf(0) }
 
@@ -337,7 +370,8 @@ private fun DownloadMedia(body: InstaModel, isReelSelected: Boolean, isPhotoSele
         body = body,
         downloadProgress = downloadProgress,
         isReelSelected = isReelSelected,
-        isPhotoSelected = isPhotoSelected
+        isPhotoSelected = isPhotoSelected,
+        navController = navController
     )
 }
 
@@ -383,6 +417,7 @@ private fun startDownloadTask(
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextFieldLayout(text: String) {
@@ -451,11 +486,12 @@ fun VideoDetailCard(
     body: InstaModel,
     downloadProgress: Int,
     isReelSelected: Boolean,
-    isPhotoSelected: Boolean
+    isPhotoSelected: Boolean,
+    navController: NavHostController
 ) {
 
     Card(
-        onClick = { /*TODO*/ },
+        onClick = { navController.navigate("videoPlayer/${Uri.encode(body.graphql.shortcode_media.video_url.toString())}") },
         modifier = Modifier
             .padding(8.dp)
             .fillMaxWidth()
@@ -506,7 +542,9 @@ fun VideoDetailCard(
                 }
                 //media Title
                 Text(
-                    text = (if (body.graphql.shortcode_media.edge_media_to_caption?.edges?.isEmpty() == true) body.graphql.shortcode_media.shortcode else body.graphql.shortcode_media.edge_media_to_caption?.edges?.get(0)?.node?.text)!!,
+                    text = (if (body.graphql.shortcode_media.edge_media_to_caption?.edges?.isEmpty() == true) body.graphql.shortcode_media.shortcode else body.graphql.shortcode_media.edge_media_to_caption?.edges?.get(
+                        0
+                    )?.node?.text)!!,
                     style = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.W200,

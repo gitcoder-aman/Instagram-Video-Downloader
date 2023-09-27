@@ -54,7 +54,7 @@ class MainViewModel @Inject constructor(private val instaRepository: InstaReposi
 
             if (photoId != "") {
 
-                instaRepository.getInstaVideo(photoId)
+                instaRepository.getInstaPhoto(photoId)
                     .onStart {
                         response.value = ApiState.Loading
                         Log.d("@@@@main", "10" + response.value)

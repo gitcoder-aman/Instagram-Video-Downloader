@@ -111,7 +111,7 @@ fun WebViewBrowser(url : String) {
     }, update = {
         it.loadUrl(url)
         webView = it
-    })
+    }, modifier = Modifier.fillMaxSize())
 
 
     BackHandler(enabled = backEnabled) {

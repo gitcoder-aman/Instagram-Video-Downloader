@@ -15,6 +15,6 @@ interface ApiService {
     @GET("reel/{reelId}/$END_POINT")
     suspend fun getReelVideo(@Path("reelId") reelId: String) : Response<InstaModel>
 
-    @GET("p/{photo_id}/$END_POINT")
+    @GET("p/{photoId}/$END_POINT")
     suspend fun getPhoto(@Path("photoId") photoId: String) : Response<InstaModel>
 }
