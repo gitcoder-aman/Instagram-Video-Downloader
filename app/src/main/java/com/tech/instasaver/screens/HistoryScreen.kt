@@ -1,10 +1,13 @@
 package com.tech.instasaver.screens
 
+import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -12,25 +15,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,12 +55,13 @@ import java.io.File
 fun HistoryScreen(navController: NavHostController) {
 
     val targetPath: String =
-        Environment.getExternalStorageDirectory().absolutePath + "/Download/InstaSaver"
+        Environment.getExternalStorageDirectory().absolutePath + "/Download/InstaSaver/"
     val mediaDirectory = File(targetPath)
     var mediaFiles by remember { mutableStateOf(listOf<File>()) }
 
     mediaFiles = mediaDirectory.listFiles()?.toList() ?: emptyList()
 
+    Log.d("file@@", "HistoryScreen: ${mediaFiles.size}")
     LazyColumn {
         items(mediaFiles) { mediaFile ->
             if (mediaFile.isFile && (mediaFile.extension.equals(
@@ -77,6 +75,7 @@ fun HistoryScreen(navController: NavHostController) {
     }
 }
 
+@SuppressLint("QueryPermissionsNeeded")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EachMediaFile(
@@ -88,10 +87,11 @@ fun EachMediaFile(
     Card(
         onClick = {
             //passing the video uri through navigation
-            if (mediaFile.extension.equals("mp4", ignoreCase = true))
+            if (mediaFile.extension.equals("mp4", ignoreCase = true)) {
                 navController.navigate(
                     "videoPlayer/${Uri.encode(Uri.fromFile(mediaFile).toString())}"
                 )
+            }
         },
         modifier = Modifier
             .padding(8.dp)

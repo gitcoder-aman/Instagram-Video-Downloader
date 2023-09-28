@@ -83,7 +83,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 @Composable
-fun HomeScreen(navController: NavHostController) {
+fun HomeScreen(navController: NavHostController, receivedText: String ?= null) {
 
     var urlText by rememberSaveable {
         mutableStateOf("")
@@ -145,6 +145,9 @@ fun HomeScreen(navController: NavHostController) {
                     })
             }
 
+            if (receivedText != null) {
+                urlText = receivedText
+            }
             TextFieldLayout(text = urlText)
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -200,7 +203,9 @@ fun HomeScreen(navController: NavHostController) {
         }
         Text(
             text = "designed & developed by CoderAman",
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
             style = TextStyle(
                 fontWeight = FontWeight.W200,
                 fontSize = 12.sp,
@@ -491,7 +496,8 @@ fun VideoDetailCard(
 ) {
 
     Card(
-        onClick = { navController.navigate("videoPlayer/${Uri.encode(body.graphql.shortcode_media.video_url.toString())}") },
+        onClick = {
+            navController.navigate("videoPlayer/${Uri.encode(body.graphql.shortcode_media.video_url.toString())}") },
         modifier = Modifier
             .padding(8.dp)
             .fillMaxWidth()

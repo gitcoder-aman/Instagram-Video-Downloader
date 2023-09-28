@@ -1,6 +1,8 @@
 package com.tech.instasaver
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -9,11 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Surface
 import androidx.compose.material.TabRow
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.TopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LeadingIconTab
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,7 +38,6 @@ import com.tech.instasaver.screens.HomeScreen
 import com.tech.instasaver.ui.theme.InstaSaverTheme
 import com.tech.instasaver.ui.theme.PinkColor
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.compose.material3.Text as Text
 
 
 @AndroidEntryPoint
@@ -56,8 +58,28 @@ class MainActivity : ComponentActivity() {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         InstaNavigation(navController)
+
+                        val receivedIntent = intent
+                        var receivedText: String? = null
+                        val receivedAction = receivedIntent.action
+                        val receivedType = receivedIntent.type
+                        if (receivedAction == Intent.ACTION_SEND) {
+
+                            // check mime type
+                            if (receivedType!!.startsWith("text/")) {
+                                receivedText = receivedIntent
+                                    .getStringExtra(Intent.EXTRA_TEXT)
+                                if (receivedText != null) {
+
+                                    TabScreen(navController,receivedText)
+                                    Log.d("shared@@", "onSharedIntent: ${receivedText}")
+                                }
+                            }
+                        } else if (receivedAction == Intent.ACTION_MAIN) {
+                            Log.e("shared@@", "onSharedIntent: nothing shared")
+                        }
 //                        HomeScreen(navHostController = navController)
-                        TabScreen(navController)
+                        TabScreen(navController,null)
                     }
                 }
             }
@@ -75,7 +97,7 @@ fun TopBar() {
 }
 
 @Composable
-fun TabScreen(navController: NavHostController) {
+fun TabScreen(navController: NavHostController, receivedText: String?) {
     val tabs = listOf(
         TabItem.Home,
         TabItem.History,
@@ -121,7 +143,7 @@ fun TabScreen(navController: NavHostController) {
 
             // Display content based on the selected tab
             when (selectedTabIndex) {
-                0 -> HomeScreen(navController)
+                0 -> HomeScreen(navController,receivedText)
 //                1 -> BrowserScreen()
                 1 -> {
                     HistoryScreen(navController)

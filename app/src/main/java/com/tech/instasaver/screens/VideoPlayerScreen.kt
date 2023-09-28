@@ -27,10 +27,6 @@ import androidx.navigation.NavHostController
 @Composable
 fun VideoPlayerScreen(videoUri: String?, navController: NavHostController) {
 
-
-    var backEnabled by remember {
-        mutableStateOf(false)
-    }
     Log.d("file@@", "VideoPlayerScreen: ${videoUri}")
     val context = LocalContext.current
     //when user run app in background then do task
@@ -89,7 +85,7 @@ fun VideoPlayerScreen(videoUri: String?, navController: NavHostController) {
 //                .aspectRatio(16 / 9f)
         )
     }
-    BackHandler(enabled = backEnabled) {
+    BackHandler(enabled = true) {
         navController.navigateUp()
     }
 }
