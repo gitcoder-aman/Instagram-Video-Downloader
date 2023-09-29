@@ -83,7 +83,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 @Composable
-fun HomeScreen(navController: NavHostController, receivedText: String ?= null) {
+fun HomeScreen(navController: NavHostController, receivedText: String? = null) {
 
     var urlText by rememberSaveable {
         mutableStateOf("")
@@ -136,7 +136,7 @@ fun HomeScreen(navController: NavHostController, receivedText: String ?= null) {
                         isPhotoSelected = false
                     })
                 ChipRow(
-                    chipName = "Photo",
+                    chipName = "Photo/IGTV",
                     chipIcon = Icons.Default.Photo,
                     isSelected = isPhotoSelected,
                     onClick = {
@@ -211,7 +211,7 @@ fun HomeScreen(navController: NavHostController, receivedText: String ?= null) {
                 fontSize = 12.sp,
                 fontFamily = lato_regular,
                 fontStyle = FontStyle.Italic,
-                color = PinkColor ,
+                color = PinkColor,
                 textAlign = TextAlign.Center
             )
         )
@@ -268,7 +268,7 @@ fun instaIdGet(urlText: String, isPhotoSelected: Boolean, isReelSelected: Boolea
             } else {
                 Toast.makeText(
                     LocalContext.current,
-                    "Change the type of Instagram Photo & Reel",
+                    "Change the type of Instagram Photo/IGTV & Reel",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -351,12 +351,22 @@ private fun DownloadMedia(
     val uriLink: String = if (isReelSelected) {
         body.graphql.shortcode_media.video_url!!
     } else {
-        body.graphql.shortcode_media.display_url!!
+        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true) {
+            body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
+        } else {
+            body.graphql.shortcode_media.display_url!!
+        }
     }
     val STORAGE_DIRECTORY = "/Download/InstaSaver"
     val storageDirectory = if (isReelSelected) Environment.getExternalStorageDirectory()
-        .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".mp4" else Environment.getExternalStorageDirectory()
-        .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".jpg"
+        .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".mp4"
+    else {
+        var extension = ".jpg"
+        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
+            extension = ".mp4"
+        }
+        Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + extension
+    }
 
     //check file is created or not
     val file = File(Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY)
@@ -495,9 +505,20 @@ fun VideoDetailCard(
     navController: NavHostController
 ) {
 
+    val uriLink: String = if (isReelSelected) {
+        body.graphql.shortcode_media.video_url!!
+    } else {
+        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
+            body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
+        } else {
+            body.graphql.shortcode_media.display_url!!
+        }
+    }
     Card(
         onClick = {
-            navController.navigate("videoPlayer/${Uri.encode(body.graphql.shortcode_media.video_url.toString())}") },
+            if(uriLink.contains(".mp4"))
+            navController.navigate("videoPlayer/${Uri.encode(uriLink)}")
+        },
         modifier = Modifier
             .padding(8.dp)
             .fillMaxWidth()

@@ -49,6 +49,9 @@ import com.tech.instasaver.R
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.ui.theme.PinkColor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -156,13 +159,13 @@ fun EachMediaFile(
     }
 }
 
+@SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun SetVideoThumbnail(mediaFile: File) {
     var thumbnailBitmap by remember { mutableStateOf<Bitmap?>(null) }
     val context = LocalContext.current
 
-    // Load the video thumbnail asynchronously
-    LaunchedEffect(Uri.fromFile(mediaFile)) {
+    CoroutineScope(Dispatchers.IO).launch {
         val retriever =
             MediaMetadataRetriever()  //mediaMetaDataRetriever is getting video frame
 
