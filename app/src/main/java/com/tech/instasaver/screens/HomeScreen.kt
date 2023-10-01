@@ -2,9 +2,11 @@ package com.tech.instasaver.screens
 
 import android.annotation.SuppressLint
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,7 +53,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -68,6 +69,7 @@ import com.tech.instasaver.R
 import com.tech.instasaver.apifetch_data.data.model.reelModel.InstaModel
 import com.tech.instasaver.apifetch_data.util.ApiState
 import com.tech.instasaver.apifetch_data.viewModels.MainViewModel
+import com.tech.instasaver.common.getClipBoardData
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.customcomponents.CustomComponent
@@ -82,9 +84,11 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
+@RequiresApi(Build.VERSION_CODES.P)
 @Composable
-fun HomeScreen(navController: NavHostController, receivedText: String? = null) {
+fun HomeScreen(navController: NavHostController, receiverText: String) {
 
+    val context = LocalContext.current
     var urlText by rememberSaveable {
         mutableStateOf("")
     }
@@ -106,8 +110,16 @@ fun HomeScreen(navController: NavHostController, receivedText: String? = null) {
     var isReelSelected by rememberSaveable {
         mutableStateOf(true)
     }
-    val clipboardManager = LocalClipboardManager.current
     val mainViewModel: MainViewModel = hiltViewModel()
+
+    if(getClipBoardData(context) == "") {
+        if (receiverText != "") {
+            urlText = receiverText
+        }
+    }
+
+    Log.d("getText@@", "onCreate: ${receiverText}")
+    Log.d("getText@@", "HomeScreen+clipboard: $urlText")
 
     Box(
         modifier = Modifier
@@ -145,9 +157,6 @@ fun HomeScreen(navController: NavHostController, receivedText: String? = null) {
                     })
             }
 
-            if (receivedText != null) {
-                urlText = receivedText
-            }
             TextFieldLayout(text = urlText)
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -157,9 +166,7 @@ fun HomeScreen(navController: NavHostController, receivedText: String? = null) {
                 verticalAlignment = CenterVertically
             ) {
                 Button(stringResource(id = R.string.paste_link), onClick = {
-                    val clipboardContent = clipboardManager.getText()
-                    urlText = ""
-                    urlText = (clipboardContent ?: "").toString()
+                    urlText = getClipBoardData(context = context)
                     isGetData = false
                 })
                 Button(stringResource(R.string.download), onClick = {
@@ -365,7 +372,8 @@ private fun DownloadMedia(
         if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
             extension = ".mp4"
         }
-        Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + extension
+        Environment.getExternalStorageDirectory()
+            .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + extension
     }
 
     //check file is created or not
@@ -516,8 +524,8 @@ fun VideoDetailCard(
     }
     Card(
         onClick = {
-            if(uriLink.contains(".mp4"))
-            navController.navigate("videoPlayer/${Uri.encode(uriLink)}")
+            if (uriLink.contains(".mp4"))
+                navController.navigate("videoPlayer/${Uri.encode(uriLink)}")
         },
         modifier = Modifier
             .padding(8.dp)

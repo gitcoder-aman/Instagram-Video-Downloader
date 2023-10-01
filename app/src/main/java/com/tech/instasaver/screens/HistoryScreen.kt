@@ -10,11 +10,13 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -65,7 +67,9 @@ fun HistoryScreen(navController: NavHostController) {
     mediaFiles = mediaDirectory.listFiles()?.toList() ?: emptyList()
 
     Log.d("file@@", "HistoryScreen: ${mediaFiles.size}")
-    LazyColumn {
+    LazyColumn(modifier = Modifier
+        .background(PinkColor)
+        .fillMaxSize()) {
         items(mediaFiles) { mediaFile ->
             if (mediaFile.isFile && (mediaFile.extension.equals(
                     "mp4",
@@ -103,7 +107,7 @@ fun EachMediaFile(
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(4.dp, 1.dp),
         colors = CardDefaults.cardColors(
-            containerColor = PinkColor,
+            containerColor = Color.White,
             contentColor = Color.Black
         ),
         border = BorderStroke(

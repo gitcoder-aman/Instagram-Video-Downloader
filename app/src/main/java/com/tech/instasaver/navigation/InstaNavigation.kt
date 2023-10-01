@@ -1,13 +1,15 @@
 package com.tech.instasaver.navigation
 
-import android.util.Log
+import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.tech.instasaver.screens.HistoryScreen
+import com.tech.instasaver.screens.HowToUseActivity
 import com.tech.instasaver.screens.VideoPlayerScreen
 
 @Composable
@@ -15,12 +17,12 @@ fun InstaNavigation(navController: NavHostController) {
 
 
 //    val navController = rememberNavController()
+    val context = LocalContext.current
 
     NavHost(navController = navController, startDestination = Home) {
-        composable(Home){
+        composable(Home) {
 //            HomeScreen()
         }
-
         composable(History) {
             HistoryScreen(navController)
         }
@@ -33,7 +35,7 @@ fun InstaNavigation(navController: NavHostController) {
         ) { backStackEntry ->
             val videoUri = requireNotNull(backStackEntry.arguments).getString("videoUri")
             if (videoUri != null) {
-                VideoPlayerScreen(videoUri,navController)
+                VideoPlayerScreen(videoUri, navController)
             }
         }
 
@@ -43,4 +45,3 @@ fun InstaNavigation(navController: NavHostController) {
 
 const val Home = "home_screen"
 const val History = "history_screen"
-const val VideoPlayer = "VideoPlayer_screen"
