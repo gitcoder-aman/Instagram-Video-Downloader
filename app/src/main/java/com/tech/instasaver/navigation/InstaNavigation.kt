@@ -10,7 +10,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.tech.instasaver.screens.HistoryScreen
 import com.tech.instasaver.screens.HowToUseActivity
-import com.tech.instasaver.screens.VideoPlayerScreen
 
 @Composable
 fun InstaNavigation(navController: NavHostController) {
@@ -24,20 +23,20 @@ fun InstaNavigation(navController: NavHostController) {
 //            HomeScreen()
         }
         composable(History) {
-            HistoryScreen(navController)
+            HistoryScreen()
         }
-        composable(
-            route = "videoPlayer/{videoUri}",
-            arguments = listOf(navArgument("videoUri") {
-                type = NavType.StringType
-                defaultValue = "no string"
-            })
-        ) { backStackEntry ->
-            val videoUri = requireNotNull(backStackEntry.arguments).getString("videoUri")
-            if (videoUri != null) {
-                VideoPlayerScreen(videoUri, navController)
-            }
-        }
+//        composable(
+//            route = "videoPlayer/{videoUri}",
+//            arguments = listOf(navArgument("videoUri") {
+//                type = NavType.StringType
+//                defaultValue = "no string"
+//            })
+//        ) { backStackEntry ->
+//            val videoUri = requireNotNull(backStackEntry.arguments).getString("videoUri")
+//            if (videoUri != null) {
+//                VideoPlayerScreen(videoUri, navController)
+//            }
+//        }
 
     }
 

@@ -1,7 +1,7 @@
 package com.tech.instasaver.screens
 
 import android.annotation.SuppressLint
-import android.net.Uri
+import android.content.Intent
 import android.os.Build
 import android.os.Environment
 import android.util.Log
@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -63,7 +64,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.tech.instasaver.R
 import com.tech.instasaver.apifetch_data.data.model.reelModel.InstaModel
@@ -73,20 +73,14 @@ import com.tech.instasaver.common.getClipBoardData
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.customcomponents.CustomComponent
+import com.tech.instasaver.downloadFile.startDownloadTask
 import com.tech.instasaver.ui.theme.PinkColor
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import java.io.File
-import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
 @RequiresApi(Build.VERSION_CODES.P)
 @Composable
-fun HomeScreen(navController: NavHostController, receiverText: String) {
+fun HomeScreen(receiverText: String) {
 
     val context = LocalContext.current
     var urlText by rememberSaveable {
@@ -112,13 +106,13 @@ fun HomeScreen(navController: NavHostController, receiverText: String) {
     }
     val mainViewModel: MainViewModel = hiltViewModel()
 
-    if(getClipBoardData(context) == "") {
+    if (getClipBoardData(context) == "") {
         if (receiverText != "") {
             urlText = receiverText
         }
     }
 
-    Log.d("getText@@", "onCreate: ${receiverText}")
+    Log.d("getText@@", "onCreate: $receiverText")
     Log.d("getText@@", "HomeScreen+clipboard: $urlText")
 
     Box(
@@ -170,7 +164,12 @@ fun HomeScreen(navController: NavHostController, receiverText: String) {
                     isGetData = false
                 })
                 Button(stringResource(R.string.download), onClick = {
-                    isCheckUrl = true
+                    isCheckUrl = if(isNetworkAvailable(context)){
+                        true
+                    }else{
+                        Toast.makeText(context, "Please Check your internet..", Toast.LENGTH_SHORT).show()
+                        false
+                    }
                 })
 
                 if (isCheckUrl) {
@@ -204,7 +203,6 @@ fun HomeScreen(navController: NavHostController, receiverText: String) {
                     mainViewModel = mainViewModel,
                     isPhotoSelected,
                     isReelSelected,
-                    navController
                 )
             }
         }
@@ -229,7 +227,7 @@ fun HomeScreen(navController: NavHostController, receiverText: String) {
 @Composable
 fun ChipRow(
     chipName: String,
-    onClick: () -> Unit = {},
+    onClick: () -> Unit,
     chipIcon: ImageVector,
     isSelected: Boolean
 ) {
@@ -237,6 +235,7 @@ fun ChipRow(
         modifier = Modifier
             .padding(8.dp)
             .clip(CircleShape)
+            .border(1.dp, Color.Black, shape = CircleShape)
             .background(if (isSelected) PinkColor else Color.White)
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -301,28 +300,25 @@ fun instaIdGet(urlText: String, isPhotoSelected: Boolean, isReelSelected: Boolea
 private fun GETData(
     mainViewModel: MainViewModel,
     isPhotoSelected: Boolean,
-    isReelSelected: Boolean,
-    navController: NavHostController
+    isReelSelected: Boolean
 ) {
     Log.d("@@@@main", "14 GETData: ${mainViewModel.response.value}")
     when (val result = mainViewModel.response.value) {
         is ApiState.Success -> {
             if (isReelSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.video_url != null) {
-                    DownloadMedia(
+                    MakeMediaFile(
                         result.data.body()!!,
                         isReelSelected,
-                        isPhotoSelected,
-                        navController
+                        isPhotoSelected
                     )
                 }
             } else if (isPhotoSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.display_url != null) {
-                    DownloadMedia(
+                    MakeMediaFile(
                         result.data.body()!!,
                         isReelSelected,
-                        isPhotoSelected,
-                        navController
+                        isPhotoSelected
                     )
                 }
             }
@@ -346,11 +342,10 @@ private fun GETData(
 
 @SuppressLint("UnrememberedMutableState", "CoroutineCreationDuringComposition")
 @Composable
-private fun DownloadMedia(
+private fun MakeMediaFile(
     body: InstaModel,
     isReelSelected: Boolean,
-    isPhotoSelected: Boolean,
-    navController: NavHostController
+    isPhotoSelected: Boolean
 ) {
 
     var downloadProgress by remember { mutableIntStateOf(0) }
@@ -364,7 +359,7 @@ private fun DownloadMedia(
             body.graphql.shortcode_media.display_url!!
         }
     }
-    val STORAGE_DIRECTORY = "/Download/InstaSaver"
+    val  STORAGE_DIRECTORY = "/Download/InstaSaver"
     val storageDirectory = if (isReelSelected) Environment.getExternalStorageDirectory()
         .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".mp4"
     else {
@@ -393,54 +388,9 @@ private fun DownloadMedia(
         body = body,
         downloadProgress = downloadProgress,
         isReelSelected = isReelSelected,
-        isPhotoSelected = isPhotoSelected,
-        navController = navController
+        isPhotoSelected = isPhotoSelected
     )
 }
-
-@OptIn(DelicateCoroutinesApi::class)
-private fun startDownloadTask(
-    uriLink: String,
-    storageDirectory: String,
-    progressCallback: (Int) -> Unit
-
-) {
-
-    GlobalScope.launch(Dispatchers.IO) {
-
-
-        val url = URL(uriLink)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "GET"
-        connection.setRequestProperty("Accept-Encoding", "identity")
-        connection.connect()
-
-        if (connection.responseCode in 200..299) {
-            val fileSize = connection.contentLength
-            val inputStream = connection.inputStream
-            val outputStream = FileOutputStream(storageDirectory)
-
-            var byteCopied: Long = 0
-            var buffer = ByteArray(1024)
-            var bytes = inputStream.read(buffer)
-            while (bytes >= 0) {
-                byteCopied += bytes
-                var downloadProgress = (byteCopied.toFloat() / fileSize.toFloat() * 100).toInt()
-
-                withContext(Dispatchers.Main) {
-                    // Set the composable content within the withContext
-                    Log.d("progressHome", "DownloadMedia: $downloadProgress")
-                    progressCallback(downloadProgress)
-                }
-                outputStream.write(buffer, 0, bytes)
-                bytes = inputStream.read(buffer)
-            }
-            outputStream.close()
-            inputStream.close()
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextFieldLayout(text: String) {
@@ -509,10 +459,10 @@ fun VideoDetailCard(
     body: InstaModel,
     downloadProgress: Int,
     isReelSelected: Boolean,
-    isPhotoSelected: Boolean,
-    navController: NavHostController
+    isPhotoSelected: Boolean
 ) {
 
+    val context = LocalContext.current
     val uriLink: String = if (isReelSelected) {
         body.graphql.shortcode_media.video_url!!
     } else {
@@ -524,8 +474,12 @@ fun VideoDetailCard(
     }
     Card(
         onClick = {
-            if (uriLink.contains(".mp4"))
-                navController.navigate("videoPlayer/${Uri.encode(uriLink)}")
+            if (uriLink.contains(".mp4")) {
+//                navController.navigate("videoPlayer/${Uri.encode(uriLink)}")
+                val intent = Intent(context, VideoPlayerActivity::class.java)
+                intent.putExtra("home_video_url", body.graphql.shortcode_media.video_url)
+                context.startActivity(intent)
+            }
         },
         modifier = Modifier
             .padding(8.dp)
@@ -601,7 +555,6 @@ fun ImageWithDownloaderView(
     isReelSelected: Boolean,
     isPhotoSelected: Boolean
 ) {
-
     Box(modifier = Modifier.width(100.dp), contentAlignment = Alignment.Center) {
 
         AsyncImage(

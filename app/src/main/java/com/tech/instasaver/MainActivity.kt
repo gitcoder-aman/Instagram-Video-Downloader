@@ -1,5 +1,6 @@
 package com.tech.instasaver
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -34,12 +35,14 @@ import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.StarRate
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.material3.Divider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,17 +63,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.lifecycleScope
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.install.InstallStateUpdatedListener
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallStatus
+import com.google.android.play.core.install.model.UpdateAvailability
+import com.google.android.play.core.ktx.isFlexibleUpdateAllowed
+import com.google.android.play.core.ktx.isImmediateUpdateAllowed
 import com.tech.instasaver.common.lato_regular
-import com.tech.instasaver.navigation.InstaNavigation
 import com.tech.instasaver.navigation.TabItem
 import com.tech.instasaver.screens.HistoryScreen
 import com.tech.instasaver.screens.HomeScreen
 import com.tech.instasaver.screens.HowToUseActivity
 import com.tech.instasaver.ui.theme.InstaSaverTheme
 import com.tech.instasaver.ui.theme.PinkColor
+import com.tech.instasaver.util.InAppReview
+import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -79,12 +91,24 @@ class MainActivity : ComponentActivity() {
 
     private var receiverText by mutableStateOf("") // Initial value
 
+    companion object {
+        const val UPDATE_REQUEST_CODE = 123
+    }
+
+    private lateinit var appUpdateManager: AppUpdateManager
+    private val updateType = AppUpdateType.IMMEDIATE
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        if (intent != null) {
-            val newIntentReceiverText = checkIntentValue(intent)
-            receiverText = newIntentReceiverText ?: ""
-            Log.d("intent@@", "onNewIntent: ${newIntentReceiverText}")
+        if(isNetworkAvailable(this)) {
+
+            if (intent != null) {
+                val newIntentReceiverText = checkIntentValue(intent)
+                receiverText = newIntentReceiverText ?: ""
+                Log.d("intent@@", "onNewIntent: $newIntentReceiverText")
+            }
+        }else{
+            Toast.makeText(this, "Please check Internet..", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -92,10 +116,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if(isNetworkAvailable(this)){
+            appUpdateManager = AppUpdateManagerFactory.create(applicationContext)
+
+            appUpdateManager.registerListener(installStateUpdatedListener)
+            checkForAppUpdate()
+        }else{
+            Toast.makeText(this, "Please check internet..", Toast.LENGTH_LONG).show()
+        }
+
         setContent {
             InstaSaverTheme {
 
-                val navController = rememberNavController()
                 val scaffoldState = rememberScaffoldState()
 
                 Scaffold(topBar = {
@@ -107,21 +139,81 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(padding),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        InstaNavigation(navController)
-
+//                        InstaNavigation(navController)
 
                         if (receiverText != "") {
-                            Log.d("intent@@", "!onCreate: ${receiverText}")
-                            TabScreen(navController = navController, receiverText = receiverText)
+                            Log.d("intent@@", "!onCreate: $receiverText")
+                            TabScreen(receiverText = receiverText)
                         } else {
-                            Log.d("intent@@", "onCreate: ${receiverText}")
-                            TabScreen(navController, "")
+                            Log.d("intent@@", "onCreate: $receiverText")
+                            TabScreen("")
                         }
 //                        HomeScreen(navHostController = navController)
                     }
                 }
             }
+        }
+    }
 
+    private fun checkForAppUpdate() {
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+            val isUpdateAvailable = info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+            val isUpdateAllowed = when (updateType) {
+                AppUpdateType.FLEXIBLE -> info.isFlexibleUpdateAllowed
+                AppUpdateType.IMMEDIATE -> info.isImmediateUpdateAllowed
+                else -> false
+            }
+            if (isUpdateAvailable && isUpdateAllowed) {
+                appUpdateManager.startUpdateFlowForResult(
+                    info,
+                    updateType,
+                    this,
+                    UPDATE_REQUEST_CODE
+                )
+            }
+
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+            if (info.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                appUpdateManager.startUpdateFlowForResult(
+                    info,
+                    updateType,
+                    this,
+                    UPDATE_REQUEST_CODE
+                )
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        appUpdateManager.unregisterListener(installStateUpdatedListener)
+    }
+
+    private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
+        if (state.installStatus() == InstallStatus.DOWNLOADED) {
+            Toast.makeText(
+                this,
+                "Download successful,Restarting app in 5 seconds",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        lifecycleScope.launch {
+            delay(5000)
+            appUpdateManager.completeUpdate()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == UPDATE_REQUEST_CODE) {
+            if (resultCode != RESULT_OK) {
+                Toast.makeText(this, "Something went wrong updating.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
@@ -135,6 +227,9 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
         mutableStateOf(false)
     }
     var isHowToUse by remember {
+        mutableStateOf(false)
+    }
+    var isRating by remember {
         mutableStateOf(false)
     }
 
@@ -153,13 +248,22 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
         DrawerItem(icon = Icons.Default.QuestionMark, title = stringResource(R.string.how_to_use)) {
             isHowToUse = true
         }
+        Divider(color = Color.Gray, thickness = 0.2.dp)
+
         DrawerItem(icon = Icons.Default.Share, title = stringResource(R.string.share)) {
             isSharing = true
         }
+        Divider(color = Color.Gray, thickness = 0.2.dp)
 
         DrawerItem(icon = Icons.Default.Feedback, title = stringResource(R.string.feedback)) {
             isFeedback = true
         }
+        Divider(color = Color.Gray, thickness = 0.2.dp)
+
+        DrawerItem(icon = Icons.Default.StarRate, title = stringResource(R.string.rate_the_app)) {
+            isRating = true
+        }
+        Divider(color = Color.Gray, thickness = 0.2.dp)
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -180,6 +284,11 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
+    }
+    if(isRating){
+        val inAppReview = InAppReview()
+        inAppReview.askUserForReview(activity = context as Activity)
+        isRating = false
     }
     if (isSharing) {
         LaunchedEffect(true) {
@@ -227,7 +336,6 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
         isHowToUse = false
     }
 }
-
 @Composable
 fun DrawerHeader() {
     // Customize the header layout as needed
@@ -259,7 +367,7 @@ fun DrawerItem(icon: ImageVector, title: String, onClick: () -> Unit) {
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        Icon(imageVector = icon, contentDescription = null)
+        Icon(imageVector = icon, contentDescription = null, tint = PinkColor)
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = title)
     }
@@ -321,7 +429,7 @@ fun TopBar(scaffoldState: ScaffoldState) {
 
 fun checkIntentValue(intent: Intent): String? {
 
-    var receivedText: String? = null
+    var receivedText: String?
     val receivedAction = intent.action
     val receivedType = intent.type
     if (receivedAction == Intent.ACTION_SEND) {
@@ -343,7 +451,7 @@ fun checkIntentValue(intent: Intent): String? {
 
 @RequiresApi(Build.VERSION_CODES.P)
 @Composable
-fun TabScreen(navController: NavHostController, receiverText: String) {
+fun TabScreen(receiverText: String) {
     val tabs = listOf(
         TabItem.Home,
         TabItem.History,
@@ -389,10 +497,12 @@ fun TabScreen(navController: NavHostController, receiverText: String) {
 
             // Display content based on the selected tab
             when (selectedTabIndex) {
-                0 -> HomeScreen(navController, receiverText)
+                0 -> {
+                    HomeScreen(receiverText)
+                }
 //                1 -> BrowserScreen()
                 1 -> {
-                    HistoryScreen(navController)
+                    HistoryScreen()
                 }
             }
         }

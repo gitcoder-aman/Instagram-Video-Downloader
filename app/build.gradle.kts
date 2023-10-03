@@ -118,6 +118,19 @@ dependencies {
 
     implementation("androidx.media3:media3-exoplayer:1.1.1")
     implementation("androidx.media3:media3-ui:1.1.1")
+
+    //for inAppUpdate
+    implementation("com.google.android.play:app-update:2.1.0")
+
+    // For Kotlin users also import the Kotlin extensions library for Play In-App Update:
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
+
+    //for rating
+    implementation("com.google.android.play:review:2.0.1")
+
+    // For Kotlin users also import the Kotlin extensions library for Play In-App Review:
+    implementation("com.google.android.play:review-ktx:2.0.1")
+
 }
 kapt {
     correctErrorTypes

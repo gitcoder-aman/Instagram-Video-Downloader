@@ -5,9 +5,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Environment
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,30 +25,46 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavHostController
+import androidx.core.content.FileProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.tech.instasaver.R
 import com.tech.instasaver.common.lato_bold
@@ -57,28 +76,42 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
-fun HistoryScreen(navController: NavHostController) {
+fun HistoryScreen() {
 
-    val targetPath: String =
-        Environment.getExternalStorageDirectory().absolutePath + "/Download/InstaSaver/"
-    val mediaDirectory = File(targetPath)
-    var mediaFiles by remember { mutableStateOf(listOf<File>()) }
+    val viewModel: FileListViewModel = viewModel()
+    viewModel.getMediaFile()
 
-    mediaFiles = mediaDirectory.listFiles()?.toList() ?: emptyList()
+    val context = LocalContext.current
 
-    Log.d("file@@", "HistoryScreen: ${mediaFiles.size}")
-    LazyColumn(modifier = Modifier
-        .background(PinkColor)
-        .fillMaxSize()) {
-        items(mediaFiles) { mediaFile ->
-            if (mediaFile.isFile && (mediaFile.extension.equals(
-                    "mp4",
-                    ignoreCase = true
-                ) || mediaFile.extension.equals("jpg", ignoreCase = true))
-            ) {
-                EachMediaFile(mediaFile, navController)
+    LazyColumn(
+        modifier = Modifier
+            .background(PinkColor)
+            .fillMaxSize()
+    ) {
+        itemsIndexed(
+            items = viewModel.listMedia,
+            itemContent = { _, item ->
+                AnimatedVisibility(
+                    visible = true,
+                    enter = expandVertically(),
+                    exit = shrinkVertically(animationSpec = tween(durationMillis = 1000))
+                ) {
+                    EachMediaFile(mediaFile = item) {
+                        if (item.exists() && item.isFile) {
+                            if (item.delete()) {
+                                viewModel.removeItem(item)
+                                Toast.makeText(
+                                    context,
+                                    "Video is Deleted from Device.",
+                                    Toast.LENGTH_SHORT
+                                )
+                                    .show()
+                            }
+                        }
+                    }
+                }
             }
-        }
+        )
     }
 }
 
@@ -87,23 +120,32 @@ fun HistoryScreen(navController: NavHostController) {
 @Composable
 fun EachMediaFile(
     mediaFile: File,
-    navController: NavHostController,
+    onDelete: () -> Unit
 ) {
+
+    val context = LocalContext.current
+    val isDropDownMenu = remember { mutableStateOf(false) }
+    val localContext = LocalDensity.current
+    var anchorPosition by remember { mutableStateOf<Offset?>(null) }
+
 
     Log.d("file@@", "EachMediaFile: ${Uri.fromFile(mediaFile)}")
     Card(
         onClick = {
             //passing the video uri through navigation
             if (mediaFile.extension.equals("mp4", ignoreCase = true)) {
-                navController.navigate(
-                    "videoPlayer/${Uri.encode(Uri.fromFile(mediaFile).toString())}"
-                )
+//                navController.navigate(
+//                    "videoPlayer/${Uri.encode(Uri.fromFile(mediaFile).toString())}"
+//                )
+                val intent = Intent(context, VideoPlayerActivity::class.java)
+                intent.putExtra("history_video_uri", mediaFile.toString())
+                context.startActivity(intent)
             }
         },
         modifier = Modifier
-            .padding(8.dp)
+            .padding(4.dp)
             .fillMaxWidth()
-            .height(100.dp),
+            .height(80.dp),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(4.dp, 1.dp),
         colors = CardDefaults.cardColors(
@@ -118,7 +160,8 @@ fun EachMediaFile(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .weight(1f)
+                .padding(4.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -132,13 +175,13 @@ fun EachMediaFile(
                 AsyncImage(
                     model = Uri.fromFile(mediaFile),
                     contentDescription = "insta_downloader",
-                    placeholder = painterResource(id = R.drawable.ic_launcher_background),
-                    error = painterResource(id = R.drawable.ic_launcher_background),
+                    placeholder = painterResource(id = R.drawable.instagram_seeklogo_com),
+                    error = painterResource(id = R.drawable.instagram_seeklogo_com),
                     modifier = Modifier.fillMaxHeight()
                 )
             }
             Spacer(modifier = Modifier.width(10.dp))
-            Column {
+            Column(modifier = Modifier.weight(0.3f)) {
                 Text(
                     text = mediaFile.name, style = TextStyle(
                         fontSize = 14.sp,
@@ -159,7 +202,133 @@ fun EachMediaFile(
                     maxLines = 1
                 )
             }
+
+            val toggleMenu: () -> Unit = {
+                isDropDownMenu.value = !isDropDownMenu.value
+                if (isDropDownMenu.value) {
+                    val density = localContext.density
+                    val position = Offset(
+                        (-16f * density), // Adjust this offset as needed
+                        0f
+                    )
+                    anchorPosition = position
+                }
+            }
+            Column(
+                modifier = Modifier,
+                verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                IconButton(onClick = {
+                    toggleMenu()
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = null,
+                        tint = Color.Black
+                    )
+                }
+            }
         }
+        if (isDropDownMenu.value) {
+            DropDownMenu(isDropDownMenu, anchorPosition, mediaFile) {
+                onDelete()
+            }
+        }
+    }
+}
+
+@Composable
+fun DropDownMenu(
+    isDropDownMenu: MutableState<Boolean>,
+    anchorPosition: Offset?,
+    mediaFile: File,
+    onDelete: () -> Unit
+) {
+    val context = LocalContext.current
+    val isShowAlertDialog = remember { mutableStateOf(false) }
+
+    DropdownMenu(
+        expanded = isDropDownMenu.value,
+        onDismissRequest = { isDropDownMenu.value = false },
+        offset = anchorPosition?.let { DpOffset(it.x.dp, it.y.dp) } ?: DpOffset(
+            0.dp,
+            0.dp
+        ), // Apply the offset
+        modifier = Modifier.background(Color.White)
+    ) {
+        DropdownMenuItem(text = {
+            Text(text = "Share")
+        }, onClick = {
+            Toast.makeText(context, "Share", Toast.LENGTH_SHORT).show()
+            val contentUri = FileProvider.getUriForFile(
+                context,
+                context.applicationContext.packageName + ".provider",
+                mediaFile
+            )
+
+            val shareIntent = Intent(Intent.ACTION_SEND)
+            shareIntent.type = "video/*"
+            shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri)
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+            context.startActivity(shareIntent)
+            isDropDownMenu.value = false
+        }, leadingIcon = {
+            Icon(Icons.Default.Share, contentDescription = null)
+        })
+        Divider()
+        DropdownMenuItem(text = {
+            Text(text = "Delete")
+        }, onClick = {
+            isShowAlertDialog.value = true
+        }, leadingIcon = {
+            Icon(Icons.Default.Delete, contentDescription = null)
+        })
+    }
+    if (isShowAlertDialog.value) {
+        AlertDialog(
+            onDismissRequest = {
+                isShowAlertDialog.value = false
+            },
+            title = {
+                Row {
+                    Icon(Icons.Default.Delete, contentDescription = null)
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(text = "Delete")
+                }
+            },
+            text = {
+                Text(text = "Are you sure delete this video?")
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = {
+                            isShowAlertDialog.value = false
+                            isDropDownMenu.value = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.Red
+                        )
+                    ) {
+                        Text("Cancel")
+                    }
+                    TextButton(
+                        onClick = {
+                            onDelete()
+                            isShowAlertDialog.value = false
+                            isDropDownMenu.value = false
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -186,14 +355,11 @@ fun SetVideoThumbnail(mediaFile: File) {
         } finally {
             retriever.release()
         }
-
-//        onDispose {
-//            // Clean up any resources here if needed
-//        }
     }
     thumbnailBitmap?.let { bitmap ->
         Image(
             bitmap = bitmap.asImageBitmap(),
+
             contentDescription = null,
             modifier = Modifier
                 .fillMaxHeight(),

@@ -18,12 +18,6 @@ class MainViewModel @Inject constructor(private val instaRepository: InstaReposi
     ViewModel() {
 
     val response: MutableState<ApiState> = mutableStateOf(ApiState.Empty)   // storing response data
-
-//    init {
-//        Log.d("@@@@main", "8" + response.value)
-//        Log.d("@@@@main", "9" + instaRepository)
-//        getInstaVideo()
-//    }
     fun fetchInstaVideo(reelId: String) {
         Log.d("@@@@main", "8" + response.value)
         Log.d("@@@@main", "9" + instaRepository)
