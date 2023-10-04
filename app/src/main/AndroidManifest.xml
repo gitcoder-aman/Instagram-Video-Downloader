@@ -45,7 +45,7 @@
         <activity android:name=".screens.HowToUseActivity"
             android:exported="false" />
 
-        <activity android:name=".screens.VideoPlayerActivity"
+        <activity android:name=".screens.ViewActivity"
             android:exported="false" />
 
         <provider

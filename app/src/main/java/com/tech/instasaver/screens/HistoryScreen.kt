@@ -3,7 +3,6 @@ package com.tech.instasaver.screens
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +33,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -54,7 +53,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -65,7 +65,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.RequestOptions
+import com.bumptech.glide.request.target.Target
 import com.tech.instasaver.R
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
@@ -75,11 +80,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 
+@SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun HistoryScreen() {
 
     val viewModel: FileListViewModel = viewModel()
-    viewModel.getMediaFile()
+    CoroutineScope(Dispatchers.Main).launch {
+        viewModel.getMediaFile()
+    }
 
     val context = LocalContext.current
 
@@ -133,14 +141,15 @@ fun EachMediaFile(
     Card(
         onClick = {
             //passing the video uri through navigation
-            if (mediaFile.extension.equals("mp4", ignoreCase = true)) {
-//                navController.navigate(
-//                    "videoPlayer/${Uri.encode(Uri.fromFile(mediaFile).toString())}"
-//                )
-                val intent = Intent(context, VideoPlayerActivity::class.java)
-                intent.putExtra("history_video_uri", mediaFile.toString())
-                context.startActivity(intent)
-            }
+//            if (mediaFile.extension.equals("mp4", ignoreCase = true)) {
+////                navController.navigate(
+////                    "videoPlayer/${Uri.encode(Uri.fromFile(mediaFile).toString())}"
+////                )
+//
+//            }
+            val intent = Intent(context, ViewActivity::class.java)
+            intent.putExtra("history_file_uri", mediaFile.toString())
+            context.startActivity(intent)
         },
         modifier = Modifier
             .padding(4.dp)
@@ -165,21 +174,8 @@ fun EachMediaFile(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (mediaFile.extension.equals(
-                    "mp4",
-                    ignoreCase = true
-                )
-            ) {
-                SetVideoThumbnail(mediaFile = mediaFile)
-            } else {
-                AsyncImage(
-                    model = Uri.fromFile(mediaFile),
-                    contentDescription = "insta_downloader",
-                    placeholder = painterResource(id = R.drawable.instagram_seeklogo_com),
-                    error = painterResource(id = R.drawable.instagram_seeklogo_com),
-                    modifier = Modifier.fillMaxHeight()
-                )
-            }
+            LoadImageWithGlide(mediaFile = mediaFile) //for video/Image
+
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(0.3f)) {
                 Text(
@@ -334,36 +330,50 @@ fun DropDownMenu(
 
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
-fun SetVideoThumbnail(mediaFile: File) {
-    var thumbnailBitmap by remember { mutableStateOf<Bitmap?>(null) }
+fun LoadImageWithGlide(
+    mediaFile: File,
+) {
+    val painter = remember { mutableStateOf<Painter?>(null) }
     val context = LocalContext.current
 
-    CoroutineScope(Dispatchers.IO).launch {
-        val retriever =
-            MediaMetadataRetriever()  //mediaMetaDataRetriever is getting video frame
+    Glide.with(context)
+        .asBitmap()
+        .load(mediaFile)
+        .placeholder(R.drawable.ic_launcher_foreground)
+        .apply(RequestOptions().centerCrop())
+        .listener(object : RequestListener<Bitmap?> {
 
-        try {
-            val uri = Uri.fromFile(mediaFile)
-            retriever.setDataSource(context, uri)
 
-            // Retrieve the video's first frame as a bitmap
-            val frame = retriever.getFrameAtTime(0)
+            override fun onLoadFailed(
+                e: GlideException?,
+                model: Any?,
+                target: Target<Bitmap?>?,
+                isFirstResource: Boolean
+            ): Boolean {
+                // Handle image load failure
+                return false
+            }
 
-            thumbnailBitmap = frame
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            retriever.release()
-        }
-    }
-    thumbnailBitmap?.let { bitmap ->
+            override fun onResourceReady(
+                resource: Bitmap?,
+                model: Any?,
+                target: Target<Bitmap?>?,
+                dataSource: DataSource?,
+                isFirstResource: Boolean
+            ): Boolean {
+                // Set the loaded image as the Painter
+                painter.value = resource?.let { BitmapPainter(it.asImageBitmap()) }
+                return false
+            }
+        })
+        .submit()
+
+    if (painter.value != null) {
+        Image(painter = painter.value!!, contentDescription = null)
+    } else {
         Image(
-            bitmap = bitmap.asImageBitmap(),
-
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxHeight(),
-            contentScale = ContentScale.Fit
+            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            contentDescription = null
         )
     }
 }

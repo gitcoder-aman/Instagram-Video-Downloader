@@ -164,10 +164,11 @@ fun HomeScreen(receiverText: String) {
                     isGetData = false
                 })
                 Button(stringResource(R.string.download), onClick = {
-                    isCheckUrl = if(isNetworkAvailable(context)){
+                    isCheckUrl = if (isNetworkAvailable(context)) {
                         true
-                    }else{
-                        Toast.makeText(context, "Please Check your internet..", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Please Check your internet..", Toast.LENGTH_SHORT)
+                            .show()
                         false
                     }
                 })
@@ -353,13 +354,13 @@ private fun MakeMediaFile(
     val uriLink: String = if (isReelSelected) {
         body.graphql.shortcode_media.video_url!!
     } else {
-        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true) {
+        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
             body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
         } else {
             body.graphql.shortcode_media.display_url!!
         }
     }
-    val  STORAGE_DIRECTORY = "/Download/InstaSaver"
+    val STORAGE_DIRECTORY = "/Download/InstaSaver"
     val storageDirectory = if (isReelSelected) Environment.getExternalStorageDirectory()
         .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".mp4"
     else {
@@ -391,6 +392,7 @@ private fun MakeMediaFile(
         isPhotoSelected = isPhotoSelected
     )
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextFieldLayout(text: String) {
@@ -474,12 +476,10 @@ fun VideoDetailCard(
     }
     Card(
         onClick = {
-            if (uriLink.contains(".mp4")) {
 //                navController.navigate("videoPlayer/${Uri.encode(uriLink)}")
-                val intent = Intent(context, VideoPlayerActivity::class.java)
-                intent.putExtra("home_video_url", body.graphql.shortcode_media.video_url)
+                val intent = Intent(context, ViewActivity::class.java)
+                intent.putExtra("home_file_url", uriLink)
                 context.startActivity(intent)
-            }
         },
         modifier = Modifier
             .padding(8.dp)

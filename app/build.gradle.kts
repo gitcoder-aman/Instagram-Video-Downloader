@@ -131,6 +131,9 @@ dependencies {
     // For Kotlin users also import the Kotlin extensions library for Play In-App Review:
     implementation("com.google.android.play:review-ktx:2.0.1")
 
+    implementation("com.github.bumptech.glide:glide:4.12.0")
+    kapt("com.github.bumptech.glide:compiler:4.12.0")
+
 }
 kapt {
     correctErrorTypes
