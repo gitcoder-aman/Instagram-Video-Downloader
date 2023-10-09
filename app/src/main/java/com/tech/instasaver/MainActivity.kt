@@ -2,6 +2,7 @@ package com.tech.instasaver
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,26 +24,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.MaterialTheme.typography
+import androidx.compose.material.Scaffold
+import androidx.compose.material.ScaffoldState
 import androidx.compose.material.Surface
 import androidx.compose.material.TabRow
 import androidx.compose.material.TopAppBar
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LeadingIconTab
-import androidx.compose.material.Scaffold
-import androidx.compose.material.ScaffoldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.StarRate
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LeadingIconTab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat.startActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
@@ -81,6 +83,7 @@ import com.tech.instasaver.ui.theme.InstaSaverTheme
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InAppReview
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
+import com.tech.instasaver.util.Permission
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -93,6 +96,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val UPDATE_REQUEST_CODE = 123
+        const val PERMISSIONS_REQUEST_STORAGE = 100
     }
 
     private lateinit var appUpdateManager: AppUpdateManager
@@ -100,14 +104,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        if(isNetworkAvailable(this)) {
+        if (isNetworkAvailable(this)) {
 
             if (intent != null) {
                 val newIntentReceiverText = checkIntentValue(intent)
                 receiverText = newIntentReceiverText ?: ""
                 Log.d("intent@@", "onNewIntent: $newIntentReceiverText")
             }
-        }else{
+        } else {
             Toast.makeText(this, "Please check Internet..", Toast.LENGTH_SHORT).show()
         }
     }
@@ -116,15 +120,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if(isNetworkAvailable(this)){
+        if (isNetworkAvailable(this)) {
             appUpdateManager = AppUpdateManagerFactory.create(applicationContext)
 
             appUpdateManager.registerListener(installStateUpdatedListener)
             checkForAppUpdate()
-        }else{
+        } else {
             Toast.makeText(this, "Please check internet..", Toast.LENGTH_LONG).show()
         }
 
+        val permission = Permission()  //provide the storage permission
+        // Check for permissions and request them if not granted
+        if (permission.checkStoragePermission(this)) {
+            // Permissions are already granted, you can access files here
+            // Perform file-related operations here
+        } else {
+            // Permissions are not granted, request them
+            permission.requestPermission(this)
+        }
         setContent {
             InstaSaverTheme {
 
@@ -139,8 +152,6 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(padding),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-//                        InstaNavigation(navController)
-
                         if (receiverText != "") {
                             Log.d("intent@@", "!onCreate: $receiverText")
                             TabScreen(receiverText = receiverText)
@@ -148,9 +159,26 @@ class MainActivity : ComponentActivity() {
                             Log.d("intent@@", "onCreate: $receiverText")
                             TabScreen("")
                         }
-//                        HomeScreen(navHostController = navController)
                     }
                 }
+            }
+        }
+    }
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSIONS_REQUEST_STORAGE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted, you can access files now
+                // Perform file-related operations here
+                Log.d("permission@@", "onRequestPermissionsResult: Permission Granted")
+            } else {
+                // Permission denied, handle accordingly (e.g., show a message)
+                Toast.makeText(this, "Please provide the storage permission", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
     }
@@ -218,6 +246,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun DrawerContent(scaffoldState: ScaffoldState) {
     var isSharing by remember {
@@ -230,6 +259,9 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
         mutableStateOf(false)
     }
     var isRating by remember {
+        mutableStateOf(false)
+    }
+    var isPrivacy by remember {
         mutableStateOf(false)
     }
 
@@ -261,7 +293,15 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
         Divider(color = Color.Gray, thickness = 0.2.dp)
 
         DrawerItem(icon = Icons.Default.StarRate, title = stringResource(R.string.rate_the_app)) {
+            val intent =
+                Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + context.packageName))
+            startActivity(context, intent, null)
             isRating = true
+        }
+        Divider(color = Color.Gray, thickness = 0.2.dp)
+
+        DrawerItem(icon = Icons.Default.PrivacyTip, title = stringResource(R.string.privacy)) {
+            isPrivacy = true
         }
         Divider(color = Color.Gray, thickness = 0.2.dp)
 
@@ -285,9 +325,9 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
-    if(isRating){
+    if (isRating) {
         val inAppReview = InAppReview()
-        inAppReview.askUserForReview(activity = context as Activity)
+        inAppReview.askUserForReview(context as Activity)
         isRating = false
     }
     if (isSharing) {
@@ -335,7 +375,19 @@ fun DrawerContent(scaffoldState: ScaffoldState) {
         }
         isHowToUse = false
     }
+    if (isPrivacy) {
+        val url = stringResource(R.string.privacy_policy_link)
+
+        // Create an Intent to open a web browser
+        val intent = Intent(Intent.ACTION_VIEW)
+        intent.data = Uri.parse(url)
+
+        // Start the web browser activity
+        context.startActivity(intent)
+        isPrivacy = false
+    }
 }
+
 @Composable
 fun DrawerHeader() {
     // Customize the header layout as needed

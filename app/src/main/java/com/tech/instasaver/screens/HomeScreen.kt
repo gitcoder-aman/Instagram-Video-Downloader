@@ -1,6 +1,7 @@
 package com.tech.instasaver.screens
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.os.Environment
@@ -76,6 +77,7 @@ import com.tech.instasaver.customcomponents.CustomComponent
 import com.tech.instasaver.downloadFile.startDownloadTask
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
+import com.tech.instasaver.util.Permission
 import java.io.File
 
 @RequiresApi(Build.VERSION_CODES.P)
@@ -164,12 +166,19 @@ fun HomeScreen(receiverText: String) {
                     isGetData = false
                 })
                 Button(stringResource(R.string.download), onClick = {
-                    isCheckUrl = if (isNetworkAvailable(context)) {
-                        true
+                    val permission = Permission()
+                    if (isNetworkAvailable(context)) {
+                        if(permission.checkStoragePermission(context as Activity)){
+                            isCheckUrl = true
+                        }else{
+                            Toast.makeText(context, "please provide the storage permission.", Toast.LENGTH_SHORT).show()
+                            permission.requestPermission(context as Activity)
+                            isCheckUrl = false
+                        }
                     } else {
                         Toast.makeText(context, "Please Check your internet..", Toast.LENGTH_SHORT)
                             .show()
-                        false
+                        isCheckUrl = false
                     }
                 })
 
@@ -477,9 +486,9 @@ fun VideoDetailCard(
     Card(
         onClick = {
 //                navController.navigate("videoPlayer/${Uri.encode(uriLink)}")
-                val intent = Intent(context, ViewActivity::class.java)
-                intent.putExtra("home_file_url", uriLink)
-                context.startActivity(intent)
+            val intent = Intent(context, ViewActivity::class.java)
+            intent.putExtra("home_file_url", uriLink)
+            context.startActivity(intent)
         },
         modifier = Modifier
             .padding(8.dp)
