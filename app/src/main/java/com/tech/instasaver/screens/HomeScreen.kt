@@ -78,6 +78,7 @@ import com.tech.instasaver.downloadFile.startDownloadTask
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import com.tech.instasaver.util.Permission
+import kotlinx.coroutines.DelicateCoroutinesApi
 import java.io.File
 
 @RequiresApi(Build.VERSION_CODES.P)
@@ -110,7 +111,9 @@ fun HomeScreen(receiverText: String) {
 
     if (getClipBoardData(context) == "") {
         if (receiverText != "") {
+            Log.d("intent@@", "!HomeScreen: $receiverText")
             urlText = receiverText
+            Log.d("intent@@", "!HomeScreen: $urlText")
         }
     }
 
@@ -168,10 +171,14 @@ fun HomeScreen(receiverText: String) {
                 Button(stringResource(R.string.download), onClick = {
                     val permission = Permission()
                     if (isNetworkAvailable(context)) {
-                        if(permission.checkStoragePermission(context as Activity)){
+                        if (permission.checkStoragePermission(context as Activity)) {
                             isCheckUrl = true
-                        }else{
-                            Toast.makeText(context, "please provide the storage permission.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "please provide the storage permission.",
+                                Toast.LENGTH_SHORT
+                            ).show()
                             permission.requestPermission(context as Activity)
                             isCheckUrl = false
                         }
@@ -313,6 +320,7 @@ private fun GETData(
     isReelSelected: Boolean
 ) {
     Log.d("@@@@main", "14 GETData: ${mainViewModel.response.value}")
+    val context = LocalContext.current
     when (val result = mainViewModel.response.value) {
         is ApiState.Success -> {
             if (isReelSelected) {
@@ -335,6 +343,7 @@ private fun GETData(
         }
 
         is ApiState.Failure -> {
+            Toast.makeText(context, "Something went wrong with this Link.", Toast.LENGTH_SHORT).show()
             Log.d("@@@@main", "GETData:  ${result.msg}")
         }
 
@@ -359,6 +368,7 @@ private fun MakeMediaFile(
 ) {
 
     var downloadProgress by remember { mutableIntStateOf(0) }
+    val context  = LocalContext.current
 
     val uriLink: String = if (isReelSelected) {
         body.graphql.shortcode_media.video_url!!
@@ -386,10 +396,8 @@ private fun MakeMediaFile(
     if (!file.exists()) {
         file.mkdirs()
     }
-
-    LaunchedEffect(key1 = Unit) {
-
-        startDownloadTask(uriLink, storageDirectory) { progress ->
+    LaunchedEffect(Unit) {
+        startDownloadTask(uriLink, storageDirectory,context) { progress ->
             downloadProgress = progress
         }
     }

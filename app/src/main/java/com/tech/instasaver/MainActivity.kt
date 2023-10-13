@@ -74,6 +74,7 @@ import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.play.core.ktx.isFlexibleUpdateAllowed
 import com.google.android.play.core.ktx.isImmediateUpdateAllowed
+import com.tech.instasaver.common.clearClipBoardData
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.navigation.TabItem
 import com.tech.instasaver.screens.HistoryScreen
@@ -99,17 +100,19 @@ class MainActivity : ComponentActivity() {
         const val PERMISSIONS_REQUEST_STORAGE = 100
     }
 
-    private lateinit var appUpdateManager: AppUpdateManager
+    private var appUpdateManager: AppUpdateManager ?= null
     private val updateType = AppUpdateType.IMMEDIATE
 
+    @RequiresApi(Build.VERSION_CODES.P)
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         if (isNetworkAvailable(this)) {
 
-            if (intent != null) {
+            if (intent != null) { //when second time open app then change receiver text
                 val newIntentReceiverText = checkIntentValue(intent)
                 receiverText = newIntentReceiverText ?: ""
                 Log.d("intent@@", "onNewIntent: $newIntentReceiverText")
+                clearClipBoardData(this)
             }
         } else {
             Toast.makeText(this, "Please check Internet..", Toast.LENGTH_SHORT).show()
@@ -120,11 +123,20 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+
         if (isNetworkAvailable(this)) {
+
+            if (intent != null) { //when second time open app then change receiver text
+                val newIntentReceiverText = checkIntentValue(intent)
+                receiverText = newIntentReceiverText ?: ""
+                Log.d("intent@@", "onNewIntent: $newIntentReceiverText")
+                clearClipBoardData(this)
+            }
             appUpdateManager = AppUpdateManagerFactory.create(applicationContext)
 
-            appUpdateManager.registerListener(installStateUpdatedListener)
+            appUpdateManager!!.registerListener(installStateUpdatedListener)
             checkForAppUpdate()
+
         } else {
             Toast.makeText(this, "Please check internet..", Toast.LENGTH_LONG).show()
         }
@@ -164,6 +176,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -184,7 +197,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkForAppUpdate() {
-        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+        appUpdateManager?.appUpdateInfo?.addOnSuccessListener { info ->
             val isUpdateAvailable = info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
             val isUpdateAllowed = when (updateType) {
                 AppUpdateType.FLEXIBLE -> info.isFlexibleUpdateAllowed
@@ -192,7 +205,7 @@ class MainActivity : ComponentActivity() {
                 else -> false
             }
             if (isUpdateAvailable && isUpdateAllowed) {
-                appUpdateManager.startUpdateFlowForResult(
+                appUpdateManager!!.startUpdateFlowForResult(
                     info,
                     updateType,
                     this,
@@ -205,9 +218,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+        appUpdateManager?.appUpdateInfo?.addOnSuccessListener { info ->
             if (info.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
-                appUpdateManager.startUpdateFlowForResult(
+                appUpdateManager?.startUpdateFlowForResult(
                     info,
                     updateType,
                     this,
@@ -219,7 +232,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        appUpdateManager.unregisterListener(installStateUpdatedListener)
+        appUpdateManager?.unregisterListener(installStateUpdatedListener)
     }
 
     private val installStateUpdatedListener = InstallStateUpdatedListener { state ->
@@ -232,10 +245,11 @@ class MainActivity : ComponentActivity() {
         }
         lifecycleScope.launch {
             delay(5000)
-            appUpdateManager.completeUpdate()
+            appUpdateManager?.completeUpdate()
         }
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == UPDATE_REQUEST_CODE) {
@@ -550,6 +564,7 @@ fun TabScreen(receiverText: String) {
             // Display content based on the selected tab
             when (selectedTabIndex) {
                 0 -> {
+                    Log.d("intent@@", "!2onCreate: $receiverText")
                     HomeScreen(receiverText)
                 }
 //                1 -> BrowserScreen()

@@ -30,12 +30,7 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:label="@string/app_name"
             android:theme="@style/Theme.InstaSaver">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-
-            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 
@@ -43,9 +38,22 @@
 <!--                <data android:mimeType="image/*" />-->
                 <data android:mimeType="text/*" />
             </intent-filter>
+
         </activity>
+
+
         <activity android:name=".screens.HowToUseActivity"
             android:exported="false" />
+
+        <activity android:name=".screens.SplashActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+
+            </intent-filter>
+        </activity>
 
         <activity android:name=".screens.ViewActivity"
             android:exported="false" />
