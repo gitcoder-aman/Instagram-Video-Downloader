@@ -78,10 +78,8 @@ import com.tech.instasaver.downloadFile.startDownloadTask
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import com.tech.instasaver.util.Permission
-import kotlinx.coroutines.DelicateCoroutinesApi
 import java.io.File
 
-@RequiresApi(Build.VERSION_CODES.P)
 @Composable
 fun HomeScreen(receiverText: String) {
 
@@ -116,10 +114,6 @@ fun HomeScreen(receiverText: String) {
             Log.d("intent@@", "!HomeScreen: $urlText")
         }
     }
-
-    Log.d("getText@@", "onCreate: $receiverText")
-    Log.d("getText@@", "HomeScreen+clipboard: $urlText")
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -343,7 +337,8 @@ private fun GETData(
         }
 
         is ApiState.Failure -> {
-            Toast.makeText(context, "Something went wrong with this Link.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Something went wrong with this Link.", Toast.LENGTH_SHORT)
+                .show()
             Log.d("@@@@main", "GETData:  ${result.msg}")
         }
 
@@ -368,7 +363,6 @@ private fun MakeMediaFile(
 ) {
 
     var downloadProgress by remember { mutableIntStateOf(0) }
-    val context  = LocalContext.current
 
     val uriLink: String = if (isReelSelected) {
         body.graphql.shortcode_media.video_url!!
@@ -379,25 +373,34 @@ private fun MakeMediaFile(
             body.graphql.shortcode_media.display_url!!
         }
     }
-    val STORAGE_DIRECTORY = "/Download/InstaSaver"
-    val storageDirectory = if (isReelSelected) Environment.getExternalStorageDirectory()
-        .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + ".mp4"
-    else {
-        var extension = ".jpg"
-        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
-            extension = ".mp4"
+    val storageDirectory = if (isReelSelected) {
+        val STORAGE_DIRECTORY_FOR_VIDEO = "/Movies/InstaSaver"
+        //check file is created or not
+        val file = File(Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY_FOR_VIDEO)
+        if (!file.exists()) {
+            file.mkdirs()
         }
         Environment.getExternalStorageDirectory()
-            .toString() + STORAGE_DIRECTORY + "/${body.graphql.shortcode_media.id}" + extension
+            .toString() + STORAGE_DIRECTORY_FOR_VIDEO + "/${body.graphql.shortcode_media.id}" + ".mp4"
+    }
+    else {
+        var extension = ".jpg"
+        var STORAGE_DIRECTORY_FOR_PICTURE_IGTV = "/Pictures/InstaSaver"
+
+        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
+            extension = ".mp4"
+            STORAGE_DIRECTORY_FOR_PICTURE_IGTV = "/Movies/InstaSaver"
+        }
+        val file = File(Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV)
+        if (!file.exists()) {
+            file.mkdirs()
+        }
+        Environment.getExternalStorageDirectory()
+            .toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV + "/${body.graphql.shortcode_media.id}" + extension
     }
 
-    //check file is created or not
-    val file = File(Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY)
-    if (!file.exists()) {
-        file.mkdirs()
-    }
     LaunchedEffect(Unit) {
-        startDownloadTask(uriLink, storageDirectory,context) { progress ->
+        startDownloadTask(uriLink, storageDirectory) { progress ->
             downloadProgress = progress
         }
     }

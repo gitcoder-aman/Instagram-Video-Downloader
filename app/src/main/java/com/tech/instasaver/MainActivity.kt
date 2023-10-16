@@ -4,13 +4,12 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +29,7 @@ import androidx.compose.material.Surface
 import androidx.compose.material.TabRow
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PrivacyTip
@@ -37,11 +37,14 @@ import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.StarRate
 import androidx.compose.material.rememberScaffoldState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LeadingIconTab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,12 +79,14 @@ import com.google.android.play.core.ktx.isFlexibleUpdateAllowed
 import com.google.android.play.core.ktx.isImmediateUpdateAllowed
 import com.tech.instasaver.common.clearClipBoardData
 import com.tech.instasaver.common.lato_regular
-import com.tech.instasaver.navigation.TabItem
+import com.tech.instasaver.tabItem.TabItem
 import com.tech.instasaver.screens.HistoryScreen
 import com.tech.instasaver.screens.HomeScreen
 import com.tech.instasaver.screens.HowToUseActivity
+import com.tech.instasaver.screens.onResult
 import com.tech.instasaver.ui.theme.InstaSaverTheme
 import com.tech.instasaver.ui.theme.PinkColor
+import com.tech.instasaver.ui.theme.Purple40
 import com.tech.instasaver.util.InAppReview
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import com.tech.instasaver.util.Permission
@@ -100,14 +105,13 @@ class MainActivity : ComponentActivity() {
         const val PERMISSIONS_REQUEST_STORAGE = 100
     }
 
-    private var appUpdateManager: AppUpdateManager ?= null
+    private var appUpdateManager: AppUpdateManager? = null
     private val updateType = AppUpdateType.IMMEDIATE
 
-    @RequiresApi(Build.VERSION_CODES.P)
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        if (isNetworkAvailable(this)) {
 
+        if (isNetworkAvailable(this)) {
             if (intent != null) { //when second time open app then change receiver text
                 val newIntentReceiverText = checkIntentValue(intent)
                 receiverText = newIntentReceiverText ?: ""
@@ -119,10 +123,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.P)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
 
         if (isNetworkAvailable(this)) {
 
@@ -151,6 +153,8 @@ class MainActivity : ComponentActivity() {
             permission.requestPermission(this)
         }
         setContent {
+            var showDialog by remember { mutableStateOf(false) }
+
             InstaSaverTheme {
 
                 val scaffoldState = rememberScaffoldState()
@@ -174,8 +178,67 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            BackHandler(onBack = {
+                showDialog = true
+            })
+            AlertDialogShowExit(showDialog = showDialog, onDismissRequest = {
+                showDialog = false
+            }) {
+                // Use this code to exit the app
+                android.os.Process.killProcess(android.os.Process.myPid())
+            }
         }
     }
+
+    @Composable
+    fun AlertDialogShowExit(
+        showDialog: Boolean,
+        onDismissRequest: () -> Unit,
+        onConfirm: () -> Unit
+    ) {
+        if(showDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    onDismissRequest()
+                },
+                title = {
+                    Row {
+                        Icon(Icons.Default.ExitToApp, contentDescription = null)
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(text = "Exit")
+                    }
+                },
+                text = {
+                    Text(text = "Are you sure Exit this App?")
+                },
+                confirmButton = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                onDismissRequest()
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = Color.Red
+                            )
+                        ) {
+                            Text("Cancel", color = Purple40)
+                        }
+                        TextButton(
+                            onClick = {
+                                onConfirm()
+                            }
+                        ) {
+                            Text("Exit", color = Color.Red)
+                        }
+                    }
+                }
+            )
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -257,6 +320,7 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this, "Something went wrong updating.", Toast.LENGTH_SHORT).show()
             }
         }
+        onResult(requestCode, resultCode)
     }
 }
 
@@ -439,7 +503,6 @@ fun DrawerItem(icon: ImageVector, title: String, onClick: () -> Unit) {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.P)
 @Composable
 fun TopBar(scaffoldState: ScaffoldState) {
     val context = LocalContext.current
@@ -515,9 +578,10 @@ fun checkIntentValue(intent: Intent): String? {
     return null
 }
 
-@RequiresApi(Build.VERSION_CODES.P)
 @Composable
-fun TabScreen(receiverText: String) {
+fun TabScreen(
+    receiverText: String
+) {
     val tabs = listOf(
         TabItem.Home,
         TabItem.History,
@@ -564,10 +628,9 @@ fun TabScreen(receiverText: String) {
             // Display content based on the selected tab
             when (selectedTabIndex) {
                 0 -> {
-                    Log.d("intent@@", "!2onCreate: $receiverText")
                     HomeScreen(receiverText)
                 }
-//                1 -> BrowserScreen()
+
                 1 -> {
                     HistoryScreen()
                 }

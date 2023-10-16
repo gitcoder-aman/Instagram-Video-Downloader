@@ -1,6 +1,7 @@
 package com.tech.instasaver.screens
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -33,7 +34,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -75,6 +76,7 @@ import com.tech.instasaver.R
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.ui.theme.PinkColor
+import com.tech.instasaver.ui.theme.Purple40
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,38 +90,88 @@ fun HistoryScreen() {
     CoroutineScope(Dispatchers.Main).launch {
         viewModel.getMediaFile()
     }
-
     val context = LocalContext.current
 
-    LazyColumn(
-        modifier = Modifier
-            .background(PinkColor)
-            .fillMaxSize()
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        itemsIndexed(
-            items = viewModel.listMedia,
-            itemContent = { _, item ->
-                AnimatedVisibility(
-                    visible = true,
-                    enter = expandVertically(),
-                    exit = shrinkVertically(animationSpec = tween(durationMillis = 1000))
-                ) {
-                    EachMediaFile(mediaFile = item) {
-                        if (item.exists() && item.isFile) {
-                            if (item.delete()) {
-                                viewModel.removeItem(item)
-                                Toast.makeText(
-                                    context,
-                                    "Video is Deleted from Device.",
-                                    Toast.LENGTH_SHORT
-                                )
-                                    .show()
+
+        if (viewModel.listMedia.isNotEmpty()) {
+
+            LazyColumn(
+                modifier = Modifier
+                    .background(PinkColor)
+                    .fillMaxSize()
+            ) {
+                itemsIndexed(
+                    items = viewModel.listMedia,
+                    itemContent = { _, item ->
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = expandVertically(),
+                            exit = shrinkVertically(animationSpec = tween(durationMillis = 1000))
+                        ) {
+                            EachMediaFile(mediaFile = item) {
+                                if (item.exists() && item.isFile) {
+                                    Log.d("@@delete", "HistoryScreen: ${item}")
+
+                                    try {
+                                        if (item.exists()) {
+
+                                            if (item.delete()) {
+                                                viewModel.removeItem(item)
+                                                Toast.makeText(
+                                                    context,
+                                                    "Video is Deleted from Device.",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                Log.d(
+                                                    "@@delete",
+                                                    "Failed to delete the video file."
+                                                )
+                                            }
+                                        } else {
+                                            Log.d("@@delete", "file not exist")
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e(
+                                            "@@delete",
+                                            "An error occurred while deleting the video file: ${e.message}"
+                                        )
+                                        Toast.makeText(context, "An error occurred while deleting the video file:${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }
                         }
                     }
-                }
+                )
             }
-        )
+        } else {
+            Text(
+                text = "No Video & Photo", style = TextStyle(
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.W400,
+                    fontFamily = lato_bold,
+                    fontStyle = FontStyle.Italic,
+                    color = Color.Black
+                )
+            )
+        }
+    }
+}
+
+fun onResult(requestCode: Int, resultCode: Int) {
+    when (requestCode) {
+        123 -> {
+            if (resultCode == Activity.RESULT_OK) {
+                Log.d("@@delete", "onResult: success")
+            } else {
+                Log.d("@@delete", "onResult: fail")
+            }
+        }
     }
 }
 
@@ -140,13 +192,6 @@ fun EachMediaFile(
     Log.d("file@@", "EachMediaFile: ${Uri.fromFile(mediaFile)}")
     Card(
         onClick = {
-            //passing the video uri through navigation
-//            if (mediaFile.extension.equals("mp4", ignoreCase = true)) {
-////                navController.navigate(
-////                    "videoPlayer/${Uri.encode(Uri.fromFile(mediaFile).toString())}"
-////                )
-//
-//            }
             val intent = Intent(context, ViewActivity::class.java)
             intent.putExtra("history_file_uri", mediaFile.toString())
             context.startActivity(intent)
@@ -256,7 +301,6 @@ fun DropDownMenu(
         DropdownMenuItem(text = {
             Text(text = "Share")
         }, onClick = {
-            Toast.makeText(context, "Share", Toast.LENGTH_SHORT).show()
             val contentUri = FileProvider.getUriForFile(
                 context,
                 context.applicationContext.packageName + ".provider",
@@ -311,7 +355,7 @@ fun DropDownMenu(
                             contentColor = Color.Red
                         )
                     ) {
-                        Text("Cancel")
+                        Text("Cancel", color = Purple40)
                     }
                     TextButton(
                         onClick = {
@@ -320,7 +364,7 @@ fun DropDownMenu(
                             isDropDownMenu.value = false
                         }
                     ) {
-                        Text("OK")
+                        Text("OK", color = Color.Red)
                     }
                 }
             }
@@ -377,4 +421,5 @@ fun LoadImageWithGlide(
         )
     }
 }
+
 

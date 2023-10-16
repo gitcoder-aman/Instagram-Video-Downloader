@@ -1,4 +1,4 @@
-package com.tech.instasaver.navigation
+package com.tech.instasaver.tabItem
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
@@ -11,6 +11,5 @@ typealias ComposableFun = @Composable ()->Unit
 sealed class TabItem(var icon: ImageVector, var title:String){
 
     object  Home : TabItem(Icons.Outlined.Home,"Home")
-    object  Browser : TabItem(Icons.Outlined.OpenInBrowser,"Browser")
     object  History : TabItem(Icons.Outlined.History,"History")
 }

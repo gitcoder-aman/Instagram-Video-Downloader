@@ -1,8 +1,6 @@
 package com.tech.instasaver.downloadFile
 
-import android.content.Context
 import android.util.Log
-import android.widget.Toast
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -16,12 +14,10 @@ import java.net.URL
 suspend fun startDownloadTask(
     uriLink: String,
     storageDirectory: String,
-    context: Context,
     progressCallback: (Int) -> Unit
 
 ) {
-
-    Toast.makeText(context, "Download in Background Please wait.", Toast.LENGTH_LONG).show()
+    Log.d("@@downloadFile", "startDownloadTask: ${uriLink}")
 
     GlobalScope.launch(Dispatchers.IO) {
 
@@ -31,9 +27,9 @@ suspend fun startDownloadTask(
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept-Encoding", "identity")
-            connection.connectTimeout = 5000 // 5 seconds
-            connection.readTimeout = 10000   // 10 seconds
-            connection.instanceFollowRedirects = true
+//            connection.connectTimeout = 5000 // 5 seconds
+//            connection.readTimeout = 10000   // 10 seconds
+//            connection.instanceFollowRedirects = true
             connection.connect()
 
             if (connection.responseCode in 200..299) {
@@ -60,7 +56,6 @@ suspend fun startDownloadTask(
                 inputStream.close()
             }
         }catch (e : Exception){
-            Toast.makeText(context, "Something went wrong.Try Again!", Toast.LENGTH_SHORT).show()
             Log.d("@@downloadFile", "startDownloadTask: ${e.message}")
         }
     }
