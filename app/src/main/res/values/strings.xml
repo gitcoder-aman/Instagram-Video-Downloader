@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Insta Saver</string>
-    <string name="app_version">1.4</string>
+    <string name="app_version">1.5</string>
     <string name="paste_link">Paste Link</string>
     <string name="download">Download</string>
     <string name="paste_instagram_link_here">Paste Instagram link here</string>
@@ -17,4 +17,5 @@
     <string name="rate_the_app">Rate the App</string>
     <string name="privacy">Privacy</string>
     <string name="privacy_policy_link">https://doc-hosting.flycricket.io/video-downloader-for-instagram-privacy-policy/b1f19357-c71c-47e9-b929-ce87f94fe823/privacy</string>
+    <string name="designed_developed_by_coderaman"><![CDATA[designed & developed by CoderAman]]></string>
 </resources>

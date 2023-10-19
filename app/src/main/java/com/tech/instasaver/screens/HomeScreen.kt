@@ -3,11 +3,9 @@ package com.tech.instasaver.screens
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
-import android.os.Build
 import android.os.Environment
 import android.util.Log
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,10 +64,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.tech.instasaver.MainActivity.Companion.isDownloading
 import com.tech.instasaver.R
 import com.tech.instasaver.apifetch_data.data.model.reelModel.InstaModel
 import com.tech.instasaver.apifetch_data.util.ApiState
 import com.tech.instasaver.apifetch_data.viewModels.MainViewModel
+import com.tech.instasaver.common.AlertDialogShow
 import com.tech.instasaver.common.getClipBoardData
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
@@ -78,6 +78,10 @@ import com.tech.instasaver.downloadFile.startDownloadTask
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import com.tech.instasaver.util.Permission
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -105,6 +109,8 @@ fun HomeScreen(receiverText: String) {
     var isReelSelected by rememberSaveable {
         mutableStateOf(true)
     }
+    val alertDialogShowWhenSwitchType = remember { mutableStateOf(false) }
+
     val mainViewModel: MainViewModel = hiltViewModel()
 
     if (getClipBoardData(context) == "") {
@@ -137,16 +143,26 @@ fun HomeScreen(receiverText: String) {
                     chipIcon = Icons.Default.SlowMotionVideo,
                     isSelected = isReelSelected,
                     onClick = {
-                        isReelSelected = true
-                        isPhotoSelected = false
+                        if (isDownloading) {
+                            alertDialogShowWhenSwitchType.value = true
+                        } else {
+                            isReelSelected = true
+                            isPhotoSelected = false
+                            isGetData = false
+                        }
                     })
                 ChipRow(
                     chipName = "Photo/IGTV",
                     chipIcon = Icons.Default.Photo,
                     isSelected = isPhotoSelected,
                     onClick = {
-                        isPhotoSelected = true
-                        isReelSelected = false
+                        if (isDownloading) {
+                            alertDialogShowWhenSwitchType.value = true
+                        } else {
+                            isPhotoSelected = true
+                            isReelSelected = false
+                            isGetData = false
+                        }
                     })
             }
 
@@ -159,27 +175,41 @@ fun HomeScreen(receiverText: String) {
                 verticalAlignment = CenterVertically
             ) {
                 Button(stringResource(id = R.string.paste_link), onClick = {
-                    urlText = getClipBoardData(context = context)
-                    isGetData = false
+                    if (isDownloading) {
+                        alertDialogShowWhenSwitchType.value = true
+                    } else {
+                        urlText = getClipBoardData(context = context)
+                        isGetData = false
+                    }
                 })
                 Button(stringResource(R.string.download), onClick = {
-                    val permission = Permission()
-                    if (isNetworkAvailable(context)) {
-                        if (permission.checkStoragePermission(context as Activity)) {
-                            isCheckUrl = true
+                    if (isDownloading) {
+                        alertDialogShowWhenSwitchType.value = true
+                    } else {
+
+                        val permission = Permission()
+                        if (isNetworkAvailable(context)) {
+                            isCheckUrl =
+                                if (permission.checkStoragePermission(context as Activity)) {
+                                    true
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "please provide the storage permission.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    permission.requestPermission(context)
+                                    false
+                                }
                         } else {
                             Toast.makeText(
                                 context,
-                                "please provide the storage permission.",
+                                "Please Check your internet..",
                                 Toast.LENGTH_SHORT
-                            ).show()
-                            permission.requestPermission(context as Activity)
+                            )
+                                .show()
                             isCheckUrl = false
                         }
-                    } else {
-                        Toast.makeText(context, "Please Check your internet..", Toast.LENGTH_SHORT)
-                            .show()
-                        isCheckUrl = false
                     }
                 })
 
@@ -194,6 +224,9 @@ fun HomeScreen(receiverText: String) {
             }
             Spacer(modifier = Modifier.height(10.dp))
 
+            if (alertDialogShowWhenSwitchType.value) {
+                AlertDialogShow(alertDialogShowWhenSwitchType)
+            }
             if (isFetchingData) {
                 if (isReelSelected) {
                     Log.d("@@@@main", "$isReelSelected")
@@ -207,6 +240,7 @@ fun HomeScreen(receiverText: String) {
             }
             if (isGetData) {
 
+                isDownloading = true
                 Log.d("@@@@main", "13$mainViewModel")
                 Log.d("@@@@main", "isPhoto$isPhotoSelected")
                 Log.d("@@@@main", "isReel$isReelSelected")
@@ -218,7 +252,7 @@ fun HomeScreen(receiverText: String) {
             }
         }
         Text(
-            text = "designed & developed by CoderAman",
+            text = stringResource(R.string.designed_developed_by_coderaman),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
@@ -324,14 +358,20 @@ private fun GETData(
                         isReelSelected,
                         isPhotoSelected
                     )
+                } else {
+                    isDownloading = false
                 }
             } else if (isPhotoSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.display_url != null) {
+                    Log.d("groupSingleLink", "14 GETData: ${mainViewModel.response.value}")
+
                     MakeMediaFile(
                         result.data.body()!!,
                         isReelSelected,
                         isPhotoSelected
                     )
+                } else {
+                    isDownloading = false
                 }
             }
         }
@@ -339,6 +379,7 @@ private fun GETData(
         is ApiState.Failure -> {
             Toast.makeText(context, "Something went wrong with this Link.", Toast.LENGTH_SHORT)
                 .show()
+            isDownloading = false
             Log.d("@@@@main", "GETData:  ${result.msg}")
         }
 
@@ -348,6 +389,7 @@ private fun GETData(
         }
 
         is ApiState.Empty -> {
+            isDownloading = false
             Toast.makeText(LocalContext.current, "Video Url is not available", Toast.LENGTH_SHORT)
                 .show()
         }
@@ -363,14 +405,19 @@ private fun MakeMediaFile(
 ) {
 
     var downloadProgress by remember { mutableIntStateOf(0) }
+    var uriLink: String = ""
 
-    val uriLink: String = if (isReelSelected) {
-        body.graphql.shortcode_media.video_url!!
+    if (isReelSelected) {
+        uriLink = body.graphql.shortcode_media.video_url!!
     } else {
-        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
-            body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
+
+        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true) {
+            if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
+                uriLink = body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
+            }
+
         } else {
-            body.graphql.shortcode_media.display_url!!
+            uriLink = body.graphql.shortcode_media.display_url!!
         }
     }
     val storageDirectory = if (isReelSelected) {
@@ -381,9 +428,8 @@ private fun MakeMediaFile(
             file.mkdirs()
         }
         Environment.getExternalStorageDirectory()
-            .toString() + STORAGE_DIRECTORY_FOR_VIDEO + "/${body.graphql.shortcode_media.id}" + ".mp4"
-    }
-    else {
+            .toString() + STORAGE_DIRECTORY_FOR_VIDEO + "/${"insta" + body.graphql.shortcode_media.id}" + ".mp4"
+    } else {
         var extension = ".jpg"
         var STORAGE_DIRECTORY_FOR_PICTURE_IGTV = "/Pictures/InstaSaver"
 
@@ -391,12 +437,22 @@ private fun MakeMediaFile(
             extension = ".mp4"
             STORAGE_DIRECTORY_FOR_PICTURE_IGTV = "/Movies/InstaSaver"
         }
-        val file = File(Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV)
+        //check folder in present or not if not then create a folder
+        val file = File(
+            Environment.getExternalStorageDirectory()
+                .toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV
+        )
         if (!file.exists()) {
             file.mkdirs()
         }
         Environment.getExternalStorageDirectory()
-            .toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV + "/${body.graphql.shortcode_media.id}" + extension
+            .toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV + "/${"insta" + body.graphql.shortcode_media.id}" + extension
+    }
+//    var groupSingleLink: String = ""
+//    var startDownload by remember { mutableStateOf(false) }
+
+    if ((uriLink == "" ) || downloadProgress == 100) {
+        isDownloading = false
     }
 
     LaunchedEffect(Unit) {

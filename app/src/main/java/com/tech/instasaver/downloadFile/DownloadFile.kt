@@ -1,6 +1,7 @@
 package com.tech.instasaver.downloadFile
 
 import android.util.Log
+import com.tech.instasaver.MainActivity.Companion.isDownloading
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -27,9 +28,9 @@ suspend fun startDownloadTask(
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept-Encoding", "identity")
-//            connection.connectTimeout = 5000 // 5 seconds
-//            connection.readTimeout = 10000   // 10 seconds
-//            connection.instanceFollowRedirects = true
+            connection.connectTimeout = 5000 // 5 seconds
+            connection.readTimeout = 10000   // 10 seconds
+            connection.instanceFollowRedirects = true
             connection.connect()
 
             if (connection.responseCode in 200..299) {
@@ -54,8 +55,11 @@ suspend fun startDownloadTask(
                 }
                 outputStream.close()
                 inputStream.close()
+                isDownloading = false
+                Log.d("progressHome", "DownloadMedia: close")
             }
         }catch (e : Exception){
+            isDownloading = false
             Log.d("@@downloadFile", "startDownloadTask: ${e.message}")
         }
     }

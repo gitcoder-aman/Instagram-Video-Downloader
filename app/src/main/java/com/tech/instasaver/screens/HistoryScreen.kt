@@ -40,13 +40,16 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,9 +90,11 @@ import java.io.File
 fun HistoryScreen() {
 
     val viewModel: FileListViewModel = viewModel()
-    CoroutineScope(Dispatchers.Main).launch {
+    LaunchedEffect(viewModel) {
+        // Use the coroutine scope to call suspend functions, e.g., viewModel.getMediaFile()
         viewModel.getMediaFile()
     }
+
     val context = LocalContext.current
 
     Column(
@@ -124,13 +129,13 @@ fun HistoryScreen() {
                                                 viewModel.removeItem(item)
                                                 Toast.makeText(
                                                     context,
-                                                    "Video is Deleted from Device.",
+                                                    "file is Deleted from Device.",
                                                     Toast.LENGTH_SHORT
                                                 ).show()
                                             } else {
                                                 Log.d(
                                                     "@@delete",
-                                                    "Failed to delete the video file."
+                                                    "Failed to delete the file."
                                                 )
                                             }
                                         } else {
@@ -141,7 +146,11 @@ fun HistoryScreen() {
                                             "@@delete",
                                             "An error occurred while deleting the video file: ${e.message}"
                                         )
-                                        Toast.makeText(context, "An error occurred while deleting the video file:${e.message}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            "An error occurred while deleting the video file:${e.message}",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     }
                                 }
                             }
@@ -159,18 +168,6 @@ fun HistoryScreen() {
                     color = Color.Black
                 )
             )
-        }
-    }
-}
-
-fun onResult(requestCode: Int, resultCode: Int) {
-    when (requestCode) {
-        123 -> {
-            if (resultCode == Activity.RESULT_OK) {
-                Log.d("@@delete", "onResult: success")
-            } else {
-                Log.d("@@delete", "onResult: fail")
-            }
         }
     }
 }
@@ -316,7 +313,7 @@ fun DropDownMenu(
             isDropDownMenu.value = false
         }, leadingIcon = {
             Icon(Icons.Default.Share, contentDescription = null)
-        })
+        },colors = MenuDefaults.itemColors(textColor = Color.Black, leadingIconColor = PinkColor))
         Divider()
         DropdownMenuItem(text = {
             Text(text = "Delete")
@@ -324,7 +321,7 @@ fun DropDownMenu(
             isShowAlertDialog.value = true
         }, leadingIcon = {
             Icon(Icons.Default.Delete, contentDescription = null)
-        })
+        }, colors = MenuDefaults.itemColors(textColor = Color.Black, leadingIconColor = PinkColor))
     }
     if (isShowAlertDialog.value) {
         AlertDialog(

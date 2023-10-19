@@ -77,13 +77,14 @@ import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.play.core.ktx.isFlexibleUpdateAllowed
 import com.google.android.play.core.ktx.isImmediateUpdateAllowed
+import com.tech.instasaver.MainActivity.Companion.isDownloading
+import com.tech.instasaver.common.AlertDialogShow
 import com.tech.instasaver.common.clearClipBoardData
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.tabItem.TabItem
 import com.tech.instasaver.screens.HistoryScreen
 import com.tech.instasaver.screens.HomeScreen
 import com.tech.instasaver.screens.HowToUseActivity
-import com.tech.instasaver.screens.onResult
 import com.tech.instasaver.ui.theme.InstaSaverTheme
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.ui.theme.Purple40
@@ -103,6 +104,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val UPDATE_REQUEST_CODE = 123
         const val PERMISSIONS_REQUEST_STORAGE = 100
+        var isDownloading = false
     }
 
     private var appUpdateManager: AppUpdateManager? = null
@@ -163,7 +165,7 @@ class MainActivity : ComponentActivity() {
                     TopBar(scaffoldState)
                 }, scaffoldState = scaffoldState, drawerContent = {
                     DrawerContent(scaffoldState)
-                }, drawerGesturesEnabled = true) { padding ->
+                }, drawerGesturesEnabled = scaffoldState.drawerState.isOpen) { padding ->
                     Column(
                         modifier = Modifier.padding(padding),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -181,7 +183,7 @@ class MainActivity : ComponentActivity() {
             BackHandler(onBack = {
                 showDialog = true
             })
-            AlertDialogShowExit(showDialog = showDialog, onDismissRequest = {
+            AlertDialogShow(showDialog = showDialog, onDismissRequest = {
                 showDialog = false
             }) {
                 // Use this code to exit the app
@@ -191,12 +193,12 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun AlertDialogShowExit(
+    fun AlertDialogShow(
         showDialog: Boolean,
         onDismissRequest: () -> Unit,
         onConfirm: () -> Unit
     ) {
-        if(showDialog) {
+        if (showDialog) {
             AlertDialog(
                 onDismissRequest = {
                     onDismissRequest()
@@ -216,16 +218,17 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(
-                            onClick = {
-                                onDismissRequest()
-                            },
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = Color.Red
-                            )
-                        ) {
-                            Text("Cancel", color = Purple40)
-                        }
+
+                            TextButton(
+                                onClick = {
+                                    onDismissRequest()
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = Color.Red
+                                )
+                            ) {
+                                Text("Cancel", color = Purple40)
+                            }
                         TextButton(
                             onClick = {
                                 onConfirm()
@@ -320,7 +323,6 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this, "Something went wrong updating.", Toast.LENGTH_SHORT).show()
             }
         }
-        onResult(requestCode, resultCode)
     }
 }
 
@@ -580,13 +582,14 @@ fun checkIntentValue(intent: Intent): String? {
 
 @Composable
 fun TabScreen(
-    receiverText: String
+    receiverText: String,
 ) {
     val tabs = listOf(
         TabItem.Home,
         TabItem.History,
     )
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    var alertDialogShowWhenSwitch = remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -602,7 +605,13 @@ fun TabScreen(
                 tabs.forEachIndexed { index, tabItem ->
                     LeadingIconTab(
                         selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
+                        onClick = {
+                            if (index <= 1 && !isDownloading) {
+                                selectedTabIndex = index
+                            }else{
+                                alertDialogShowWhenSwitch.value = true
+                            }
+                        },
                         text = {
                             Text(
                                 text = tabItem.title,
@@ -630,12 +639,15 @@ fun TabScreen(
                 0 -> {
                     HomeScreen(receiverText)
                 }
-
                 1 -> {
                     HistoryScreen()
                 }
             }
         }
     }
+    if(alertDialogShowWhenSwitch.value){
+        AlertDialogShow(alertDialogShowWhenSwitch)
+    }
+
 }
 

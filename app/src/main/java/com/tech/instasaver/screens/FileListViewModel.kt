@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import java.io.File
+import java.util.Arrays
 
 class FileListViewModel : ViewModel() {
 
@@ -23,11 +24,16 @@ class FileListViewModel : ViewModel() {
             Environment.getExternalStorageDirectory().absolutePath + "/Pictures/InstaSaver"
         val mediaDirectoryForPicture = File(targetPathForPicture)
 
-        listFileVideo = mediaDirectoryForVideo.listFiles()?.toList() ?: emptyList()
-        listFilePicture = mediaDirectoryForPicture.listFiles()?.toList() ?: emptyList()
+        // Sort the video files by last modified timestamp in descending order
+        listFileVideo = mediaDirectoryForVideo.listFiles()?.sortedWith(compareByDescending { it.lastModified() }) ?: emptyList()
+
+        // Sort the picture files by last modified timestamp in descending order
+        listFilePicture = mediaDirectoryForPicture.listFiles()?.sortedWith(compareByDescending { it.lastModified() }) ?: emptyList()
+
 
         listMedia.addAll(listFileVideo)
         listMedia.addAll(listFilePicture)
+
     }
 
     fun removeItem(mediaFile: File) {
