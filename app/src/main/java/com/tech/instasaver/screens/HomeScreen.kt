@@ -74,7 +74,8 @@ import com.tech.instasaver.common.getClipBoardData
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.customcomponents.CustomComponent
-import com.tech.instasaver.downloadFile.startDownloadTask
+import com.tech.instasaver.downloadProcess.makeMediaFile
+import com.tech.instasaver.downloadProcess.startDownloadTask
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import com.tech.instasaver.util.Permission
@@ -353,24 +354,26 @@ private fun GETData(
         is ApiState.Success -> {
             if (isReelSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.video_url != null) {
-                    MakeMediaFile(
+                    GetLinkAndDownload(
                         result.data.body()!!,
                         isReelSelected,
                         isPhotoSelected
                     )
                 } else {
+                    Toast.makeText(context, "Something went wrong.${result.data.body()}", Toast.LENGTH_SHORT).show()
                     isDownloading = false
                 }
             } else if (isPhotoSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.display_url != null) {
                     Log.d("groupSingleLink", "14 GETData: ${mainViewModel.response.value}")
 
-                    MakeMediaFile(
+                    GetLinkAndDownload(
                         result.data.body()!!,
                         isReelSelected,
                         isPhotoSelected
                     )
                 } else {
+                    Toast.makeText(context, "Something went wrong.${result.data.body()}", Toast.LENGTH_SHORT).show()
                     isDownloading = false
                 }
             }
@@ -398,7 +401,7 @@ private fun GETData(
 
 @SuppressLint("UnrememberedMutableState", "CoroutineCreationDuringComposition")
 @Composable
-private fun MakeMediaFile(
+private fun GetLinkAndDownload(
     body: InstaModel,
     isReelSelected: Boolean,
     isPhotoSelected: Boolean
@@ -406,6 +409,8 @@ private fun MakeMediaFile(
 
     var downloadProgress by remember { mutableIntStateOf(0) }
     var uriLink: String = ""
+    var startDownload by remember { mutableStateOf(true) }
+    var groupLinkHashmap = HashMap<String, String>()
 
     if (isReelSelected) {
         uriLink = body.graphql.shortcode_media.video_url!!
@@ -413,51 +418,73 @@ private fun MakeMediaFile(
 
         if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true) {
             if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
-                uriLink = body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
+                uriLink =
+                    body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
+            } else if (!body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
+                if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.display_resources.isNotEmpty()) {
+                    startDownload = false
+                    isDownloading = true
+                    val file = File(
+                        Environment.getExternalStorageDirectory()
+                            .toString() + "/Pictures/InstaSaver"
+                    )
+                    if (!file.exists()) {
+                        file.mkdirs()
+                    }
+                    val downloadJobs = mutableListOf<Job>() // Keep track of download jobs
+                    for (i in 0 until body.graphql.shortcode_media.edge_sidecar_to_children.edges.size) {
+
+                        val groupSingleLink = body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.display_resources[0].src
+
+                        if (groupSingleLink.isNotEmpty()) {
+                            val makeNewStorageDirectory = Environment.getExternalStorageDirectory()
+                                .toString() + "/Pictures/InstaSaver" + "/${"insta" + System.currentTimeMillis()}" + ".jpg"
+
+                            groupLinkHashmap[groupSingleLink] = makeNewStorageDirectory
+                        }
+                    }
+                    if (groupLinkHashmap.size > 0) {
+                        Log.d("hashmap@@", "GetLinkAndDownload: ${groupLinkHashmap.size}")
+                        for ((link, path) in groupLinkHashmap) {
+                            Log.d("hashmap@@", "GetLinkAndDownload: $link")
+                            Log.d("hashmap@@", "GetLinkAndDownload: $path")
+
+                            LaunchedEffect(key1 = Unit) {
+                                val downloadJob = CoroutineScope(Dispatchers.IO).launch {
+                                    startDownloadTask(link, path) { progress ->
+                                        downloadProgress = progress
+                                    }
+                                }
+                                downloadJobs.add(downloadJob)
+                            }
+                        }
+                        CoroutineScope(Dispatchers.Main).launch {
+                            downloadJobs.forEach { job ->
+                                job.join()
+                            }
+                        }
+                    }
+                } else {
+                    uriLink = body.graphql.shortcode_media.display_url!!
+                }
             }
 
         } else {
             uriLink = body.graphql.shortcode_media.display_url!!
         }
-    }
-    val storageDirectory = if (isReelSelected) {
-        val STORAGE_DIRECTORY_FOR_VIDEO = "/Movies/InstaSaver"
-        //check file is created or not
-        val file = File(Environment.getExternalStorageDirectory().toString() + STORAGE_DIRECTORY_FOR_VIDEO)
-        if (!file.exists()) {
-            file.mkdirs()
-        }
-        Environment.getExternalStorageDirectory()
-            .toString() + STORAGE_DIRECTORY_FOR_VIDEO + "/${"insta" + body.graphql.shortcode_media.id}" + ".mp4"
-    } else {
-        var extension = ".jpg"
-        var STORAGE_DIRECTORY_FOR_PICTURE_IGTV = "/Pictures/InstaSaver"
 
-        if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true && body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
-            extension = ".mp4"
-            STORAGE_DIRECTORY_FOR_PICTURE_IGTV = "/Movies/InstaSaver"
-        }
-        //check folder in present or not if not then create a folder
-        val file = File(
-            Environment.getExternalStorageDirectory()
-                .toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV
-        )
-        if (!file.exists()) {
-            file.mkdirs()
-        }
-        Environment.getExternalStorageDirectory()
-            .toString() + STORAGE_DIRECTORY_FOR_PICTURE_IGTV + "/${"insta" + body.graphql.shortcode_media.id}" + extension
     }
-//    var groupSingleLink: String = ""
-//    var startDownload by remember { mutableStateOf(false) }
 
-    if ((uriLink == "" ) || downloadProgress == 100) {
+    if ((uriLink == "") || downloadProgress == 100) {
         isDownloading = false
     }
 
-    LaunchedEffect(Unit) {
-        startDownloadTask(uriLink, storageDirectory) { progress ->
-            downloadProgress = progress
+    if (startDownload) {
+        val storageDirectory = makeMediaFile(body, isReelSelected, isPhotoSelected)
+        LaunchedEffect(Unit) {
+            startDownloadTask(uriLink, storageDirectory) { progress ->
+                downloadProgress = progress
+            }
         }
     }
 
