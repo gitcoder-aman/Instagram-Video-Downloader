@@ -1,7 +1,6 @@
 package com.tech.instasaver.screens
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -80,8 +79,7 @@ import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.ui.theme.Purple40
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.tech.instasaver.viewmodel.FileListViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -91,7 +89,6 @@ fun HistoryScreen() {
 
     val viewModel: FileListViewModel = viewModel()
     LaunchedEffect(viewModel) {
-        // Use the coroutine scope to call suspend functions, e.g., viewModel.getMediaFile()
         viewModel.getMediaFile()
     }
 
@@ -216,7 +213,7 @@ fun EachMediaFile(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LoadImageWithGlide(mediaFile = mediaFile) //for video/Image
+            LoadImageWithGlide(mediaFile = mediaFile.toString()) //for video/Image
 
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(0.3f)) {
@@ -372,7 +369,7 @@ fun DropDownMenu(
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun LoadImageWithGlide(
-    mediaFile: File,
+    mediaFile: String,
 ) {
     val painter = remember { mutableStateOf<Painter?>(null) }
     val context = LocalContext.current

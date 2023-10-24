@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.tech.instasaver.MainActivity.Companion.isDownloading
 import com.tech.instasaver.R
@@ -76,13 +77,12 @@ import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.customcomponents.CustomComponent
 import com.tech.instasaver.downloadProcess.makeMediaFile
 import com.tech.instasaver.downloadProcess.startDownloadTask
+import com.tech.instasaver.model.MultipleData
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import com.tech.instasaver.util.Permission
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.tech.instasaver.viewmodel.DialogViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import java.io.File
 
 @Composable
@@ -348,10 +348,10 @@ private fun GETData(
     isPhotoSelected: Boolean,
     isReelSelected: Boolean
 ) {
-    Log.d("@@@@main", "14 GETData: ${mainViewModel.response.value}")
     val context = LocalContext.current
     when (val result = mainViewModel.response.value) {
         is ApiState.Success -> {
+            Log.d("@@@@main", "14 GETData: ${result}")
             if (isReelSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.video_url != null) {
                     GetLinkAndDownload(
@@ -360,12 +360,16 @@ private fun GETData(
                         isPhotoSelected
                     )
                 } else {
-                    Toast.makeText(context, "Something went wrong.${result.data.body()}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Something went wrong.${result.data.body()}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     isDownloading = false
                 }
             } else if (isPhotoSelected) {
                 if (result.data.body()?.graphql?.shortcode_media?.display_url != null) {
-                    Log.d("groupSingleLink", "14 GETData: ${mainViewModel.response.value}")
+                    Log.d("groupSingleLink", "14 GETData: ${result.data}")
 
                     GetLinkAndDownload(
                         result.data.body()!!,
@@ -373,7 +377,11 @@ private fun GETData(
                         isPhotoSelected
                     )
                 } else {
-                    Toast.makeText(context, "Something went wrong.${result.data.body()}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Something went wrong.${result.data.body()?.graphql?.shortcode_media?.display_url}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                     isDownloading = false
                 }
             }
@@ -409,68 +417,117 @@ private fun GetLinkAndDownload(
 
     var downloadProgress by remember { mutableIntStateOf(0) }
     var uriLink: String = ""
+    var groupSingleIGTVLink: String = ""
+    var groupSinglePicLink: String = ""
     var startDownload by remember { mutableStateOf(true) }
-    var groupLinkHashmap = HashMap<String, String>()
+    var downloadLinkList = mutableListOf<MultipleData>()
 
+
+    val fileMovie = File(
+        Environment.getExternalStorageDirectory()
+            .toString() + "/Movies/InstaSaver"
+    )
+    if (!fileMovie.exists()) {
+        fileMovie.mkdirs()
+    }
+    //for picture
+    val filePic = File(
+        Environment.getExternalStorageDirectory()
+            .toString() + "/Pictures/InstaSaver"
+    )
+    if (!filePic.exists()) {
+        filePic.mkdirs()
+    }
     if (isReelSelected) {
         uriLink = body.graphql.shortcode_media.video_url!!
     } else {
 
         if (body.graphql.shortcode_media.edge_sidecar_to_children?.edges?.isNotEmpty() == true) {
-            if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
-                uriLink =
-                    body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.video_url
-            } else if (!body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.is_video) {
-                if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[0].node.display_resources.isNotEmpty()) {
-                    startDownload = false
-                    isDownloading = true
-                    val file = File(
-                        Environment.getExternalStorageDirectory()
-                            .toString() + "/Pictures/InstaSaver"
-                    )
-                    if (!file.exists()) {
-                        file.mkdirs()
+            startDownload = false
+            //for IGTV Movies
+            for (i in 0 until body.graphql.shortcode_media.edge_sidecar_to_children.edges.size) {
+
+                if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.is_video) {
+                    groupSingleIGTVLink =
+                        body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.video_url
+
+                    val title =
+                        body.graphql.shortcode_media.edge_media_to_caption?.edges?.get(0)?.node?.text!!
+
+                    if (groupSingleIGTVLink.isNotEmpty()) {
+
+                        val makeNewStorageDirectory = Environment.getExternalStorageDirectory()
+                            .toString() + "/Movies/InstaSaver" + "/${"insta" + System.currentTimeMillis()}" + ".mp4"
+                        val singleData = MultipleData(
+                            groupSingleIGTVLink,
+                            title,
+                            body.graphql.shortcode_media.owner?.username!!,
+                            makeNewStorageDirectory
+                        )
+                        downloadLinkList.add(singleData)
                     }
-                    val downloadJobs = mutableListOf<Job>() // Keep track of download jobs
-                    for (i in 0 until body.graphql.shortcode_media.edge_sidecar_to_children.edges.size) {
+                }
 
-                        val groupSingleLink = body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.display_resources[0].src
+                //for Image get
+                if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.display_resources.isNotEmpty()) {
+                    groupSinglePicLink =
+                        body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.display_resources[0].src
 
-                        if (groupSingleLink.isNotEmpty()) {
-                            val makeNewStorageDirectory = Environment.getExternalStorageDirectory()
-                                .toString() + "/Pictures/InstaSaver" + "/${"insta" + System.currentTimeMillis()}" + ".jpg"
+                    val title =
+                        body.graphql.shortcode_media.edge_media_to_caption?.edges?.get(0)?.node?.text!!
 
-                            groupLinkHashmap[groupSingleLink] = makeNewStorageDirectory
-                        }
+                    if (groupSinglePicLink.isNotEmpty()) {
+                        val makeNewStorageDirectory = Environment.getExternalStorageDirectory()
+                            .toString() + "/Pictures/InstaSaver" + "/${"insta" + System.currentTimeMillis()}" + ".jpg"
+
+                        val singleData = MultipleData(
+                            groupSinglePicLink,
+                            title,
+                            body.graphql.shortcode_media.owner?.username!!,
+                            makeNewStorageDirectory
+                        )
+                        downloadLinkList.add(singleData)
                     }
-                    if (groupLinkHashmap.size > 0) {
-                        Log.d("hashmap@@", "GetLinkAndDownload: ${groupLinkHashmap.size}")
-                        for ((link, path) in groupLinkHashmap) {
-                            Log.d("hashmap@@", "GetLinkAndDownload: $link")
-                            Log.d("hashmap@@", "GetLinkAndDownload: $path")
-
-                            LaunchedEffect(key1 = Unit) {
-                                val downloadJob = CoroutineScope(Dispatchers.IO).launch {
-                                    startDownloadTask(link, path) { progress ->
-                                        downloadProgress = progress
-                                    }
-                                }
-                                downloadJobs.add(downloadJob)
-                            }
-                        }
-                        CoroutineScope(Dispatchers.Main).launch {
-                            downloadJobs.forEach { job ->
-                                job.join()
-                            }
-                        }
-                    }
-                } else {
-                    uriLink = body.graphql.shortcode_media.display_url!!
                 }
             }
+            val dialogViewModel: DialogViewModel = viewModel()
+            dialogViewModel.downloadLinkList(downloadLinkList)
+            DialogScreen(viewModel = dialogViewModel)
+
+
+//                    if (groupLinkHashmap.size > 0) {
+//                        Log.d("hashmap@@", "GetLinkAndDownload: ${groupLinkHashmap.size}")
+//                        for ((link, path) in groupLinkHashmap) {
+//                            Log.d("hashmap@@", "GetLinkAndDownload: $link")
+//                            Log.d("hashmap@@", "GetLinkAndDownload: $path")
+//
+//                            LaunchedEffect(key1 = Unit) {
+//                                val downloadJob = CoroutineScope(Dispatchers.IO).launch {
+//                                    startDownloadTask(link, path) { progress ->
+//                                        downloadProgress = progress
+//                                    }
+//                                }
+//                                downloadJobs.add(downloadJob)
+//                            }
+//                        }
+//                        CoroutineScope(Dispatchers.Main).launch {
+//                            downloadJobs.forEach { job ->
+//                                job.join()
+//                            }
+//                        }
+//                    }
+//                } else {
+//                    uriLink = body.graphql.shortcode_media.display_url!!
+//                }
 
         } else {
-            uriLink = body.graphql.shortcode_media.display_url!!
+
+            if (body.graphql.shortcode_media.video_url != null) {
+                uriLink = body.graphql.shortcode_media.video_url
+            } else if (body.graphql.shortcode_media.display_url != null) {
+                uriLink = body.graphql.shortcode_media.display_url
+            }
+
         }
 
     }
@@ -488,12 +545,14 @@ private fun GetLinkAndDownload(
         }
     }
 
-    VideoDetailCard(
-        body = body,
-        downloadProgress = downloadProgress,
-        isReelSelected = isReelSelected,
-        isPhotoSelected = isPhotoSelected
-    )
+    if (startDownload) {
+        VideoDetailCard(
+            body = body,
+            downloadProgress = downloadProgress,
+            isReelSelected = isReelSelected,
+            isPhotoSelected = isPhotoSelected
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

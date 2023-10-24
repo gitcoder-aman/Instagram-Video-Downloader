@@ -1,4 +1,4 @@
-package com.tech.instasaver.screens
+package com.tech.instasaver.viewmodel
 
 import android.os.Environment
 import android.util.Log
