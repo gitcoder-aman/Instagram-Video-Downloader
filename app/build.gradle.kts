@@ -13,8 +13,8 @@ android {
         applicationId = "com.tech.instasaver"
         minSdk = 24
         targetSdk = 33
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -130,6 +130,9 @@ dependencies {
 
     implementation("com.github.bumptech.glide:glide:4.15.0")
     kapt("com.github.bumptech.glide:compiler:4.12.0")
+
+    //for observeAsState LiveData
+    implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
 
 }
 kapt {

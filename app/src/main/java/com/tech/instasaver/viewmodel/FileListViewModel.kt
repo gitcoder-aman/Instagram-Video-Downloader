@@ -1,43 +1,73 @@
 package com.tech.instasaver.viewmodel
 
+import android.content.Context
 import android.os.Environment
 import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import android.widget.Toast
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import java.io.File
-import java.util.Arrays
 
 class FileListViewModel : ViewModel() {
 
-    private var listFileVideo: List<File> = emptyList()
-    private var listFilePicture: List<File> = emptyList()
-    var listMedia: SnapshotStateList<File> = mutableStateListOf<File>()
-    fun getMediaFile() {
+    private val _listFileVideo = MutableLiveData<List<File>>()
+    val listFileVideo : LiveData<List<File>> = _listFileVideo
+    private var targetPathForVideo : String = ""
+    private var mediaDirectoryForVideo : File ?= null
 
-        listMedia.clear()
-        val targetPathForVideo: String =
-            Environment.getExternalStorageDirectory().absolutePath + "/Movies/InstaSaver"
-        val mediaDirectoryForVideo = File(targetPathForVideo)
-
-        val targetPathForPicture: String =
-            Environment.getExternalStorageDirectory().absolutePath + "/Pictures/InstaSaver"
-        val mediaDirectoryForPicture = File(targetPathForPicture)
-
-        // Sort the video files by last modified timestamp in descending order
-        listFileVideo = mediaDirectoryForVideo.listFiles()?.sortedWith(compareByDescending { it.lastModified() }) ?: emptyList()
-
-        // Sort the picture files by last modified timestamp in descending order
-        listFilePicture = mediaDirectoryForPicture.listFiles()?.sortedWith(compareByDescending { it.lastModified() }) ?: emptyList()
+    private val _listFileImage = MutableLiveData<List<File>>()
+    val listFileImage : LiveData<List<File>> = _listFileImage
+    private var targetPathForImage : String = ""
+    private var mediaDirectoryForImage : File ?= null
 
 
-        listMedia.addAll(listFileVideo)
-        listMedia.addAll(listFilePicture)
+    init {
+        targetPathForVideo = Environment.getExternalStorageDirectory().absolutePath + "/Movies/InstaSaver"
+        mediaDirectoryForVideo = File(targetPathForVideo)
 
+        targetPathForImage = Environment.getExternalStorageDirectory().absolutePath + "/Pictures/InstaSaver"
+        mediaDirectoryForImage = File(targetPathForImage)
+        refreshFileList()
     }
 
-    fun removeItem(mediaFile: File) {
-        listMedia.remove(mediaFile)
-        Log.d("@@delete", "HistoryScreen: ${listMedia.size}")
+      fun refreshFileList(){
+
+         mediaDirectoryForVideo?.takeIf { it.exists() }?.let { directory ->
+             // Sort the video files by last modified timestamp in descending order
+             val listFilesOfVideo = directory.listFiles()?.sortedByDescending { it.lastModified() } ?: emptyList()
+             _listFileVideo.value = listFilesOfVideo
+         }
+          mediaDirectoryForImage?.takeIf { it.exists() }?.let { directory->
+              // Sort the video files by last modified timestamp in descending order
+              val listFilesOfImage = directory.listFiles()?.sortedByDescending { it.lastModified() } ?: emptyList()
+              _listFileImage.value = listFilesOfImage
+          }
+    }
+    fun removeFile(mediaFile: File, context: Context){
+        if (mediaFile.exists()) {
+            // Delete the file
+            if (mediaFile.delete()) {
+                Toast.makeText(
+                    context,
+                    "file is Deleted from Device.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                Log.d(
+                    "@@delete",
+                    "Failed to delete the file."
+                )
+            }
+
+            // Refresh the list of video files after deletion
+            refreshFileList()
+        }else{
+            Toast.makeText(
+                context,
+                "file not exist",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 }

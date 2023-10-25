@@ -219,16 +219,16 @@ class MainActivity : ComponentActivity() {
                         horizontalArrangement = Arrangement.End
                     ) {
 
-                            TextButton(
-                                onClick = {
-                                    onDismissRequest()
-                                },
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = Color.Red
-                                )
-                            ) {
-                                Text("Cancel", color = Purple40)
-                            }
+                        TextButton(
+                            onClick = {
+                                onDismissRequest()
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = Color.Red
+                            )
+                        ) {
+                            Text("Cancel", color = Purple40)
+                        }
                         TextButton(
                             onClick = {
                                 onConfirm()
@@ -608,7 +608,7 @@ fun TabScreen(
                         onClick = {
                             if (index <= 1 && !isDownloading) {
                                 selectedTabIndex = index
-                            }else{
+                            } else {
                                 alertDialogShowWhenSwitch.value = true
                             }
                         },
@@ -639,13 +639,14 @@ fun TabScreen(
                 0 -> {
                     HomeScreen(receiverText)
                 }
+
                 1 -> {
                     HistoryScreen()
                 }
             }
         }
     }
-    if(alertDialogShowWhenSwitch.value){
+    if (alertDialogShowWhenSwitch.value) {
         AlertDialogShow(alertDialogShowWhenSwitch)
     }
 

@@ -5,7 +5,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -28,7 +27,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SlowMotionVideo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -46,9 +47,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,13 +76,13 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.Target
+import com.tech.instasaver.MainActivity
 import com.tech.instasaver.R
 import com.tech.instasaver.common.lato_bold
 import com.tech.instasaver.common.lato_regular
 import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.ui.theme.Purple40
 import com.tech.instasaver.viewmodel.FileListViewModel
-import kotlinx.coroutines.launch
 import java.io.File
 
 @SuppressLint("CoroutineCreationDuringComposition")
@@ -89,26 +91,64 @@ fun HistoryScreen() {
 
     val viewModel: FileListViewModel = viewModel()
     LaunchedEffect(viewModel) {
-        viewModel.getMediaFile()
+        viewModel.refreshFileList()
     }
+    val listFileVideo by viewModel.listFileVideo.observeAsState(emptyList())
+    val listFileImage by viewModel.listFileImage.observeAsState(emptyList())
 
     val context = LocalContext.current
+    var isVideoSelected by rememberSaveable {
+        mutableStateOf(true)
+    }
+    var isPhotoSelected by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var listFile: List<File> = emptyList()
 
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
 
-        if (viewModel.listMedia.isNotEmpty()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().background(Color(0xFFE8E8EC)),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ChipRow(
+                chipName = "Video",
+                chipIcon = Icons.Default.SlowMotionVideo,
+                isSelected = isVideoSelected,
+                onClick = {
+                    isVideoSelected = true
+                    isPhotoSelected = false
+                })
+            ChipRow(
+                chipName = "Photo",
+                chipIcon = Icons.Default.Photo,
+                isSelected = isPhotoSelected,
+                onClick = {
+                    isVideoSelected = false
+                    isPhotoSelected = true
+                })
+        }
+        listFile = if(isVideoSelected){
+            listFileVideo
+        }else{
+            listFileImage
+        }
+
+        if (listFile.isNotEmpty()) {
 
             LazyColumn(
                 modifier = Modifier
-                    .background(PinkColor)
+                    .background(Color(0xFFE8E8EC))
                     .fillMaxSize()
             ) {
                 itemsIndexed(
-                    items = viewModel.listMedia,
+                    items = listFile,
                     itemContent = { _, item ->
                         AnimatedVisibility(
                             visible = true,
@@ -116,40 +156,7 @@ fun HistoryScreen() {
                             exit = shrinkVertically(animationSpec = tween(durationMillis = 1000))
                         ) {
                             EachMediaFile(mediaFile = item) {
-                                if (item.exists() && item.isFile) {
-                                    Log.d("@@delete", "HistoryScreen: ${item}")
-
-                                    try {
-                                        if (item.exists()) {
-
-                                            if (item.delete()) {
-                                                viewModel.removeItem(item)
-                                                Toast.makeText(
-                                                    context,
-                                                    "file is Deleted from Device.",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            } else {
-                                                Log.d(
-                                                    "@@delete",
-                                                    "Failed to delete the file."
-                                                )
-                                            }
-                                        } else {
-                                            Log.d("@@delete", "file not exist")
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e(
-                                            "@@delete",
-                                            "An error occurred while deleting the video file: ${e.message}"
-                                        )
-                                        Toast.makeText(
-                                            context,
-                                            "An error occurred while deleting the video file:${e.message}",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
+                                viewModel.removeFile(item, context)
                             }
                         }
                     }
@@ -157,7 +164,7 @@ fun HistoryScreen() {
             }
         } else {
             Text(
-                text = "No Video & Photo", style = TextStyle(
+                text = "No Any Media", style = TextStyle(
                     fontSize = 24.sp,
                     fontWeight = FontWeight.W400,
                     fontFamily = lato_bold,
@@ -310,7 +317,7 @@ fun DropDownMenu(
             isDropDownMenu.value = false
         }, leadingIcon = {
             Icon(Icons.Default.Share, contentDescription = null)
-        },colors = MenuDefaults.itemColors(textColor = Color.Black, leadingIconColor = PinkColor))
+        }, colors = MenuDefaults.itemColors(textColor = Color.Black, leadingIconColor = PinkColor))
         Divider()
         DropdownMenuItem(text = {
             Text(text = "Delete")
