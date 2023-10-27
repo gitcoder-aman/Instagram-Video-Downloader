@@ -10,6 +10,10 @@ class DialogViewModel : ViewModel() {
     var isDialogShown by mutableStateOf(true)
         private set
     private var downloadLinkList = mutableListOf<MultipleData>()
+
+    fun onCreateDialog(){
+        isDialogShown = true
+    }
     fun onDismissDialog(){
         isDialogShown = false
     }

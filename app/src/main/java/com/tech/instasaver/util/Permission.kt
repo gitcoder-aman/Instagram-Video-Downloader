@@ -46,15 +46,14 @@ class Permission {
                 ),
                 PERMISSIONS_REQUEST_STORAGE
             )
-        } else {
-                ActivityCompat.requestPermissions(
-                    activity,
-                    arrayOf(
-                        android.Manifest.permission.READ_EXTERNAL_STORAGE,
-                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    ),
-                    PERMISSIONS_REQUEST_STORAGE
-                )
-        }
+        } else
+            ActivityCompat.requestPermissions(
+                activity,
+                arrayOf(
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                ),
+                PERMISSIONS_REQUEST_STORAGE
+            )
     }
 }

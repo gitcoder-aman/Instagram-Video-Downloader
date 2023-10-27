@@ -82,7 +82,6 @@ import com.tech.instasaver.ui.theme.PinkColor
 import com.tech.instasaver.util.InternetConnection.Companion.isNetworkAvailable
 import com.tech.instasaver.util.Permission
 import com.tech.instasaver.viewmodel.DialogViewModel
-import kotlinx.coroutines.Job
 import java.io.File
 
 @Composable
@@ -379,7 +378,7 @@ private fun GETData(
                 } else {
                     Toast.makeText(
                         context,
-                        "Something went wrong.${result.data.body()?.graphql?.shortcode_media?.display_url}",
+                        "Something went wrong.${result.data.body()?.graphql?.shortcode_media?.shortcode}",
                         Toast.LENGTH_SHORT
                     ).show()
                     isDownloading = false
@@ -450,6 +449,7 @@ private fun GetLinkAndDownload(
                 if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.is_video) {
                     groupSingleIGTVLink =
                         body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.video_url
+                    Log.d("@@groupLink", "GetLinkAndDownload: $groupSingleIGTVLink")
 
                     val title =
                         body.graphql.shortcode_media.edge_media_to_caption?.edges?.get(0)?.node?.text!!
@@ -472,6 +472,8 @@ private fun GetLinkAndDownload(
                 if (body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.display_resources.isNotEmpty()) {
                     groupSinglePicLink =
                         body.graphql.shortcode_media.edge_sidecar_to_children.edges[i].node.display_resources[0].src
+                    Log.d("@@groupLink", "GetLinkAndDownload: $groupSinglePicLink")
+
 
                     val title =
                         body.graphql.shortcode_media.edge_media_to_caption?.edges?.get(0)?.node?.text!!
@@ -492,6 +494,7 @@ private fun GetLinkAndDownload(
             }
             val dialogViewModel: DialogViewModel = viewModel()
             dialogViewModel.downloadLinkList(downloadLinkList)
+            dialogViewModel.onCreateDialog()
             DialogScreen(viewModel = dialogViewModel)
 
 

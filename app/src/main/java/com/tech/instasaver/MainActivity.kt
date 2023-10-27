@@ -551,6 +551,10 @@ fun TopBar(scaffoldState: ScaffoldState) {
                             context.startActivity(intent, null)
                         } catch (e: Exception) {
                             e.printStackTrace()
+                        }finally {
+                            val url = "https://www.instagram.com" // Replace with your desired URL
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            context.startActivity(intent)
                         }
                     }
             )

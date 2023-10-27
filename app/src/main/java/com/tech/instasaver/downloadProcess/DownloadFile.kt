@@ -1,5 +1,6 @@
 package com.tech.instasaver.downloadProcess
 
+import android.content.Context
 import android.util.Log
 import com.tech.instasaver.MainActivity.Companion.isDownloading
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -10,15 +11,17 @@ import kotlinx.coroutines.withContext
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.coroutines.CoroutineContext
 
 @OptIn(DelicateCoroutinesApi::class)
 suspend fun startDownloadTask(
     uriLink: String,
     storageDirectory: String,
-    progressCallback: (Int) -> Unit
+    progressCallback: (Int) -> Unit,
 
-) {
+    ) {
     Log.d("@@downloadFile", "startDownloadTask: ${uriLink}")
+    Log.d("@@downloadFile", "startDownloadTask: ${storageDirectory}")
 
     GlobalScope.launch(Dispatchers.IO) {
 
@@ -57,6 +60,8 @@ suspend fun startDownloadTask(
                 inputStream.close()
                 isDownloading = false
                 Log.d("progressHome", "DownloadMedia: close")
+            }else{
+                Log.d("@@downloadFile", "startDownloadTask: ${connection.responseCode}")
             }
         }catch (e : Exception){
             isDownloading = false

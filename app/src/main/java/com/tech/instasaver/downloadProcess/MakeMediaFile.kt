@@ -1,14 +1,13 @@
 package com.tech.instasaver.downloadProcess
 
 import android.os.Environment
-import androidx.compose.runtime.Composable
 import com.tech.instasaver.apifetch_data.data.model.reelModel.InstaModel
 import java.io.File
 
 fun makeMediaFile(
     body: InstaModel,
     isReelSelected: Boolean,
-    isPhotoSelected: Boolean
+    isPhotoSelected: Boolean,
 ) : String {
     val storageDirectory = if (isReelSelected) {
         val STORAGE_DIRECTORY_FOR_VIDEO = "/Movies/InstaSaver"

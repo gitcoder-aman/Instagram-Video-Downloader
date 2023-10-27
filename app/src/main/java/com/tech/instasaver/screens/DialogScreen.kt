@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.tech.instasaver.customcomponents.CustomDialog
 import com.tech.instasaver.downloadProcess.startDownloadTask
@@ -46,6 +47,7 @@ fun DialogScreen(
     var storageDirectory by remember {
         mutableStateOf("")
     }
+    val context = LocalContext.current
 
     if (viewModel.isDialogShown) {
         CustomDialog(onDismiss = {

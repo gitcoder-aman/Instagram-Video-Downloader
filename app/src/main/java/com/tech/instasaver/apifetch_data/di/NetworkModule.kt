@@ -36,9 +36,26 @@ object NetworkModule {
                     .connectTimeout(60, TimeUnit.SECONDS)
                     .readTimeout(60, TimeUnit.SECONDS)
                     .writeTimeout(60, TimeUnit.SECONDS)
+//                    .addInterceptor { chain ->
+//                        var request = chain.request()
+//                        var response = chain.proceed(request)
+//                        var retryCount = 0
+//
+//                        while (!response.isSuccessful && retryCount < 3) {
+//                            retryCount++
+//                            // Add any delay or backoff logic here if needed
+//                            response.close()
+//                            request = request.newBuilder().build()
+//                            response = chain.proceed(request)
+//                        }
+//                        response
+//                    }
                     .build()
             )
+
         addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
     }.create(ApiService::class.java)
+
+
 }
